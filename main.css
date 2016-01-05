@@ -1,0 +1,38 @@
+
+li span {
+    margin-right: 1em;
+}
+
+progress {
+    margin-right: 1em;
+    width: 50%;
+}
+
+li .filename {
+    display: inline-block;
+    width: 50%;
+}
+
+.peerContainer {
+    margin-bottom: 1em;
+}
+
+.p2pChecking {
+    background-color: #ffeed7;
+}
+.p2pConnected, .p2pCompleted {
+    background-color: #12acef;
+}
+.p2pFailed {
+    background-color: #ffe3eb
+}
+.p2pDisconnected {
+    background-color: #ffeed7;
+}
+.p2pClosed {
+    background-color: #f5f7f8;
+}
+
+.receiving a {
+    color: #ec008c;
+}
