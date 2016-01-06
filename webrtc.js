@@ -13,7 +13,7 @@ function WebRTC(opts) {
             debug: false,
             // makes the entire PC config overridable
             peerConnectionConfig: {
-                iceServers: []
+                iceServers: [{'urls': 'stun:stun.l.google.com:19302'}]
             },
             peerConnectionConstraints: {
                 optional: []
