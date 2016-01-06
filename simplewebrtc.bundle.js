@@ -465,7 +465,7 @@ SimpleWebRTC.prototype.sendFile = function () {
 
 module.exports = SimpleWebRTC;
 
-},{"./socketioconnection":3,"./webrtc":2,"attachmediastream":6,"mockconsole":7,"webrtcsupport":4,"wildemitter":5}],4:[function(require,module,exports){
+},{"./socketioconnection":3,"./webrtc":2,"attachmediastream":6,"mockconsole":7,"webrtcsupport":5,"wildemitter":4}],5:[function(require,module,exports){
 // created by @HenrikJoreteg
 var prefix;
 var version;
@@ -512,9 +512,9 @@ module.exports = {
     getUserMedia: getUserMedia
 };
 
-},{}],5:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 /*
-WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based 
+WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based
 on @visionmedia's Emitter from UI Kit.
 
 Why? I wanted it standalone.
@@ -522,140 +522,150 @@ Why? I wanted it standalone.
 I also wanted support for wildcard emitters like this:
 
 emitter.on('*', function (eventName, other, event, payloads) {
-    
+
 });
 
 emitter.on('somenamespace*', function (eventName, payloads) {
-    
+
 });
 
-Please note that callbacks triggered by wildcard registered events also get 
+Please note that callbacks triggered by wildcard registered events also get
 the event name as the first argument.
 */
+
 module.exports = WildEmitter;
 
-function WildEmitter() {
-    this.isWildEmitter = true;
-    this.callbacks = {};
-}
+function WildEmitter() { }
 
-// Listen on the given `event` with `fn`. Store a group name if present.
-WildEmitter.prototype.on = function (event, groupName, fn) {
-    var hasGroup = (arguments.length === 3),
-        group = hasGroup ? arguments[1] : undefined,
-        func = hasGroup ? arguments[2] : arguments[1];
-    func._groupName = group;
-    (this.callbacks[event] = this.callbacks[event] || []).push(func);
-    return this;
-};
+WildEmitter.mixin = function (constructor) {
+    var prototype = constructor.prototype || constructor;
 
-// Adds an `event` listener that will be invoked a single
-// time then automatically removed.
-WildEmitter.prototype.once = function (event, groupName, fn) {
-    var self = this,
-        hasGroup = (arguments.length === 3),
-        group = hasGroup ? arguments[1] : undefined,
-        func = hasGroup ? arguments[2] : arguments[1];
-    function on() {
-        self.off(event, on);
-        func.apply(this, arguments);
-    }
-    this.on(event, group, on);
-    return this;
-};
+    prototype.isWildEmitter= true;
 
-// Unbinds an entire group
-WildEmitter.prototype.releaseGroup = function (groupName) {
-    var item, i, len, handlers;
-    for (item in this.callbacks) {
-        handlers = this.callbacks[item];
-        for (i = 0, len = handlers.length; i < len; i++) {
-            if (handlers[i]._groupName === groupName) {
-                //console.log('removing');
-                // remove it and shorten the array we're looping through
-                handlers.splice(i, 1);
-                i--;
-                len--;
-            }
-        }
-    }
-    return this;
-};
-
-// Remove the given callback for `event` or all
-// registered callbacks.
-WildEmitter.prototype.off = function (event, fn) {
-    var callbacks = this.callbacks[event],
-        i;
-
-    if (!callbacks) return this;
-
-    // remove all handlers
-    if (arguments.length === 1) {
-        delete this.callbacks[event];
+    // Listen on the given `event` with `fn`. Store a group name if present.
+    prototype.on = function (event, groupName, fn) {
+        this.callbacks = this.callbacks || {};
+        var hasGroup = (arguments.length === 3),
+            group = hasGroup ? arguments[1] : undefined,
+            func = hasGroup ? arguments[2] : arguments[1];
+        func._groupName = group;
+        (this.callbacks[event] = this.callbacks[event] || []).push(func);
         return this;
-    }
+    };
 
-    // remove specific handler
-    i = callbacks.indexOf(fn);
-    callbacks.splice(i, 1);
-    if (callbacks.length === 0) {
-        delete this.callbacks[event];
-    }
-    return this;
-};
+    // Adds an `event` listener that will be invoked a single
+    // time then automatically removed.
+    prototype.once = function (event, groupName, fn) {
+        var self = this,
+            hasGroup = (arguments.length === 3),
+            group = hasGroup ? arguments[1] : undefined,
+            func = hasGroup ? arguments[2] : arguments[1];
+        function on() {
+            self.off(event, on);
+            func.apply(this, arguments);
+        }
+        this.on(event, group, on);
+        return this;
+    };
 
-/// Emit `event` with the given args.
-// also calls any `*` handlers
-WildEmitter.prototype.emit = function (event) {
-    var args = [].slice.call(arguments, 1),
-        callbacks = this.callbacks[event],
-        specialCallbacks = this.getWildcardCallbacks(event),
-        i,
-        len,
-        item,
-        listeners;
+    // Unbinds an entire group
+    prototype.releaseGroup = function (groupName) {
+        this.callbacks = this.callbacks || {};
+        var item, i, len, handlers;
+        for (item in this.callbacks) {
+            handlers = this.callbacks[item];
+            for (i = 0, len = handlers.length; i < len; i++) {
+                if (handlers[i]._groupName === groupName) {
+                    //console.log('removing');
+                    // remove it and shorten the array we're looping through
+                    handlers.splice(i, 1);
+                    i--;
+                    len--;
+                }
+            }
+        }
+        return this;
+    };
 
-    if (callbacks) {
-        listeners = callbacks.slice();
-        for (i = 0, len = listeners.length; i < len; ++i) {
-            if (listeners[i]) {
+    // Remove the given callback for `event` or all
+    // registered callbacks.
+    prototype.off = function (event, fn) {
+        this.callbacks = this.callbacks || {};
+        var callbacks = this.callbacks[event],
+            i;
+
+        if (!callbacks) return this;
+
+        // remove all handlers
+        if (arguments.length === 1) {
+            delete this.callbacks[event];
+            return this;
+        }
+
+        // remove specific handler
+        i = callbacks.indexOf(fn);
+        callbacks.splice(i, 1);
+        if (callbacks.length === 0) {
+            delete this.callbacks[event];
+        }
+        return this;
+    };
+
+    /// Emit `event` with the given args.
+    // also calls any `*` handlers
+    prototype.emit = function (event) {
+        this.callbacks = this.callbacks || {};
+        var args = [].slice.call(arguments, 1),
+            callbacks = this.callbacks[event],
+            specialCallbacks = this.getWildcardCallbacks(event),
+            i,
+            len,
+            item,
+            listeners;
+
+        if (callbacks) {
+            listeners = callbacks.slice();
+            for (i = 0, len = listeners.length; i < len; ++i) {
+                if (!listeners[i]) {
+                    break;
+                }
                 listeners[i].apply(this, args);
-            } else {
-                break;
             }
         }
-    }
 
-    if (specialCallbacks) {
-        len = specialCallbacks.length;
-        listeners = specialCallbacks.slice();
-        for (i = 0, len = listeners.length; i < len; ++i) {
-            if (listeners[i]) {
+        if (specialCallbacks) {
+            len = specialCallbacks.length;
+            listeners = specialCallbacks.slice();
+            for (i = 0, len = listeners.length; i < len; ++i) {
+                if (!listeners[i]) {
+                    break;
+                }
                 listeners[i].apply(this, [event].concat(args));
-            } else {
-                break;
             }
         }
-    }
 
-    return this;
-};
+        return this;
+    };
 
-// Helper for for finding special wildcard event handlers that match the event
-WildEmitter.prototype.getWildcardCallbacks = function (eventName) {
-    var item,
-        split,
-        result = [];
+    // Helper for for finding special wildcard event handlers that match the event
+    prototype.getWildcardCallbacks = function (eventName) {
+        this.callbacks = this.callbacks || {};
+        var item,
+            split,
+            result = [];
 
-    for (item in this.callbacks) {
-        split = item.split('*');
-        if (item === '*' || (split.length === 2 && eventName.slice(0, split[0].length) === split[0])) {
-            result = result.concat(this.callbacks[item]);
+        for (item in this.callbacks) {
+            split = item.split('*');
+            if (item === '*' || (split.length === 2 && eventName.slice(0, split[0].length) === split[0])) {
+                result = result.concat(this.callbacks[item]);
+            }
         }
-    }
-    return result;
+        return result;
+    };
+
 };
+
+WildEmitter.mixin(WildEmitter);
 
 },{}],7:[function(require,module,exports){
 var methods = "assert,count,debug,dir,dirxml,error,exception,group,groupCollapsed,groupEnd,info,log,markTimeline,profile,profileEnd,time,timeEnd,trace,warn".split(",");
@@ -685,7 +695,7 @@ function WebRTC(opts) {
             debug: false,
             // makes the entire PC config overridable
             peerConnectionConfig: {
-                iceServers: [{'urls': 'stun:stun.l.google.com:19302'}]
+                iceServers: []
             },
             peerConnectionConstraints: {
                 optional: []
@@ -830,7 +840,7 @@ WebRTC.prototype.sendDirectlyToAll = function (channel, message, payload) {
 
 module.exports = WebRTC;
 
-},{"./peer":9,"localmedia":10,"mockconsole":7,"util":8,"webrtcsupport":4,"wildemitter":5}],3:[function(require,module,exports){
+},{"./peer":9,"localmedia":10,"mockconsole":7,"util":8,"webrtcsupport":5,"wildemitter":4}],3:[function(require,module,exports){
 var io = require('socket.io-client');
 
 function SocketIoConnection(config) {
@@ -1247,557 +1257,7 @@ module.exports = function (stream, el, options) {
     return element;
 };
 
-},{"webrtc-adapter-test":13}],13:[function(require,module,exports){
-/*
- *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
- *
- *  Use of this source code is governed by a BSD-style license
- *  that can be found in the LICENSE file in the root of the source
- *  tree.
- */
-
-/* More information about these options at jshint.com/docs/options */
-/* jshint browser: true, camelcase: true, curly: true, devel: true,
-   eqeqeq: true, forin: false, globalstrict: true, node: true,
-   quotmark: single, undef: true, unused: strict */
-/* global mozRTCIceCandidate, mozRTCPeerConnection, Promise,
-mozRTCSessionDescription, webkitRTCPeerConnection, MediaStreamTrack */
-/* exported trace,requestUserMedia */
-
-'use strict';
-
-var getUserMedia = null;
-var attachMediaStream = null;
-var reattachMediaStream = null;
-var webrtcDetectedBrowser = null;
-var webrtcDetectedVersion = null;
-var webrtcMinimumVersion = null;
-var webrtcUtils = {
-  log: function() {
-    // suppress console.log output when being included as a module.
-    if (typeof module !== 'undefined' ||
-        typeof require === 'function' && typeof define === 'function') {
-      return;
-    }
-    console.log.apply(console, arguments);
-  },
-  extractVersion: function(uastring, expr, pos) {
-    var match = uastring.match(expr);
-    return match && match.length >= pos && parseInt(match[pos]);
-  }
-};
-
-function trace(text) {
-  // This function is used for logging.
-  if (text[text.length - 1] === '\n') {
-    text = text.substring(0, text.length - 1);
-  }
-  if (window.performance) {
-    var now = (window.performance.now() / 1000).toFixed(3);
-    webrtcUtils.log(now + ': ' + text);
-  } else {
-    webrtcUtils.log(text);
-  }
-}
-
-if (typeof window === 'object') {
-  if (window.HTMLMediaElement &&
-    !('srcObject' in window.HTMLMediaElement.prototype)) {
-    // Shim the srcObject property, once, when HTMLMediaElement is found.
-    Object.defineProperty(window.HTMLMediaElement.prototype, 'srcObject', {
-      get: function() {
-        // If prefixed srcObject property exists, return it.
-        // Otherwise use the shimmed property, _srcObject
-        return 'mozSrcObject' in this ? this.mozSrcObject : this._srcObject;
-      },
-      set: function(stream) {
-        if ('mozSrcObject' in this) {
-          this.mozSrcObject = stream;
-        } else {
-          // Use _srcObject as a private property for this shim
-          this._srcObject = stream;
-          // TODO: revokeObjectUrl(this.src) when !stream to release resources?
-          this.src = URL.createObjectURL(stream);
-        }
-      }
-    });
-  }
-  // Proxy existing globals
-  getUserMedia = window.navigator && window.navigator.getUserMedia;
-}
-
-// Attach a media stream to an element.
-attachMediaStream = function(element, stream) {
-  element.srcObject = stream;
-};
-
-reattachMediaStream = function(to, from) {
-  to.srcObject = from.srcObject;
-};
-
-if (typeof window === 'undefined' || !window.navigator) {
-  webrtcUtils.log('This does not appear to be a browser');
-  webrtcDetectedBrowser = 'not a browser';
-} else if (navigator.mozGetUserMedia && window.mozRTCPeerConnection) {
-  webrtcUtils.log('This appears to be Firefox');
-
-  webrtcDetectedBrowser = 'firefox';
-
-  // the detected firefox version.
-  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
-      /Firefox\/([0-9]+)\./, 1);
-
-  // the minimum firefox version still supported by adapter.
-  webrtcMinimumVersion = 31;
-
-  // The RTCPeerConnection object.
-  window.RTCPeerConnection = function(pcConfig, pcConstraints) {
-    if (webrtcDetectedVersion < 38) {
-      // .urls is not supported in FF < 38.
-      // create RTCIceServers with a single url.
-      if (pcConfig && pcConfig.iceServers) {
-        var newIceServers = [];
-        for (var i = 0; i < pcConfig.iceServers.length; i++) {
-          var server = pcConfig.iceServers[i];
-          if (server.hasOwnProperty('urls')) {
-            for (var j = 0; j < server.urls.length; j++) {
-              var newServer = {
-                url: server.urls[j]
-              };
-              if (server.urls[j].indexOf('turn') === 0) {
-                newServer.username = server.username;
-                newServer.credential = server.credential;
-              }
-              newIceServers.push(newServer);
-            }
-          } else {
-            newIceServers.push(pcConfig.iceServers[i]);
-          }
-        }
-        pcConfig.iceServers = newIceServers;
-      }
-    }
-    return new mozRTCPeerConnection(pcConfig, pcConstraints); // jscs:ignore requireCapitalizedConstructors
-  };
-
-  // The RTCSessionDescription object.
-  if (!window.RTCSessionDescription) {
-    window.RTCSessionDescription = mozRTCSessionDescription;
-  }
-
-  // The RTCIceCandidate object.
-  if (!window.RTCIceCandidate) {
-    window.RTCIceCandidate = mozRTCIceCandidate;
-  }
-
-  // getUserMedia constraints shim.
-  getUserMedia = function(constraints, onSuccess, onError) {
-    var constraintsToFF37 = function(c) {
-      if (typeof c !== 'object' || c.require) {
-        return c;
-      }
-      var require = [];
-      Object.keys(c).forEach(function(key) {
-        if (key === 'require' || key === 'advanced' || key === 'mediaSource') {
-          return;
-        }
-        var r = c[key] = (typeof c[key] === 'object') ?
-            c[key] : {ideal: c[key]};
-        if (r.min !== undefined ||
-            r.max !== undefined || r.exact !== undefined) {
-          require.push(key);
-        }
-        if (r.exact !== undefined) {
-          if (typeof r.exact === 'number') {
-            r.min = r.max = r.exact;
-          } else {
-            c[key] = r.exact;
-          }
-          delete r.exact;
-        }
-        if (r.ideal !== undefined) {
-          c.advanced = c.advanced || [];
-          var oc = {};
-          if (typeof r.ideal === 'number') {
-            oc[key] = {min: r.ideal, max: r.ideal};
-          } else {
-            oc[key] = r.ideal;
-          }
-          c.advanced.push(oc);
-          delete r.ideal;
-          if (!Object.keys(r).length) {
-            delete c[key];
-          }
-        }
-      });
-      if (require.length) {
-        c.require = require;
-      }
-      return c;
-    };
-    if (webrtcDetectedVersion < 38) {
-      webrtcUtils.log('spec: ' + JSON.stringify(constraints));
-      if (constraints.audio) {
-        constraints.audio = constraintsToFF37(constraints.audio);
-      }
-      if (constraints.video) {
-        constraints.video = constraintsToFF37(constraints.video);
-      }
-      webrtcUtils.log('ff37: ' + JSON.stringify(constraints));
-    }
-    return navigator.mozGetUserMedia(constraints, onSuccess, onError);
-  };
-
-  navigator.getUserMedia = getUserMedia;
-
-  // Shim for mediaDevices on older versions.
-  if (!navigator.mediaDevices) {
-    navigator.mediaDevices = {getUserMedia: requestUserMedia,
-      addEventListener: function() { },
-      removeEventListener: function() { }
-    };
-  }
-  navigator.mediaDevices.enumerateDevices =
-      navigator.mediaDevices.enumerateDevices || function() {
-    return new Promise(function(resolve) {
-      var infos = [
-        {kind: 'audioinput', deviceId: 'default', label: '', groupId: ''},
-        {kind: 'videoinput', deviceId: 'default', label: '', groupId: ''}
-      ];
-      resolve(infos);
-    });
-  };
-
-  if (webrtcDetectedVersion < 41) {
-    // Work around http://bugzil.la/1169665
-    var orgEnumerateDevices =
-        navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
-    navigator.mediaDevices.enumerateDevices = function() {
-      return orgEnumerateDevices().then(undefined, function(e) {
-        if (e.name === 'NotFoundError') {
-          return [];
-        }
-        throw e;
-      });
-    };
-  }
-} else if (navigator.webkitGetUserMedia && window.webkitRTCPeerConnection) {
-  webrtcUtils.log('This appears to be Chrome');
-
-  webrtcDetectedBrowser = 'chrome';
-
-  // the detected chrome version.
-  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
-      /Chrom(e|ium)\/([0-9]+)\./, 2);
-
-  // the minimum chrome version still supported by adapter.
-  webrtcMinimumVersion = 38;
-
-  // The RTCPeerConnection object.
-  window.RTCPeerConnection = function(pcConfig, pcConstraints) {
-    // Translate iceTransportPolicy to iceTransports,
-    // see https://code.google.com/p/webrtc/issues/detail?id=4869
-    if (pcConfig && pcConfig.iceTransportPolicy) {
-      pcConfig.iceTransports = pcConfig.iceTransportPolicy;
-    }
-
-    var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints); // jscs:ignore requireCapitalizedConstructors
-    var origGetStats = pc.getStats.bind(pc);
-    pc.getStats = function(selector, successCallback, errorCallback) { // jshint ignore: line
-      var self = this;
-      var args = arguments;
-
-      // If selector is a function then we are in the old style stats so just
-      // pass back the original getStats format to avoid breaking old users.
-      if (arguments.length > 0 && typeof selector === 'function') {
-        return origGetStats(selector, successCallback);
-      }
-
-      var fixChromeStats = function(response) {
-        var standardReport = {};
-        var reports = response.result();
-        reports.forEach(function(report) {
-          var standardStats = {
-            id: report.id,
-            timestamp: report.timestamp,
-            type: report.type
-          };
-          report.names().forEach(function(name) {
-            standardStats[name] = report.stat(name);
-          });
-          standardReport[standardStats.id] = standardStats;
-        });
-
-        return standardReport;
-      };
-
-      if (arguments.length >= 2) {
-        var successCallbackWrapper = function(response) {
-          args[1](fixChromeStats(response));
-        };
-
-        return origGetStats.apply(this, [successCallbackWrapper, arguments[0]]);
-      }
-
-      // promise-support
-      return new Promise(function(resolve, reject) {
-        if (args.length === 1 && selector === null) {
-          origGetStats.apply(self, [
-              function(response) {
-                resolve.apply(null, [fixChromeStats(response)]);
-              }, reject]);
-        } else {
-          origGetStats.apply(self, [resolve, reject]);
-        }
-      });
-    };
-
-    return pc;
-  };
-
-  // add promise support
-  ['createOffer', 'createAnswer'].forEach(function(method) {
-    var nativeMethod = webkitRTCPeerConnection.prototype[method];
-    webkitRTCPeerConnection.prototype[method] = function() {
-      var self = this;
-      if (arguments.length < 1 || (arguments.length === 1 &&
-          typeof(arguments[0]) === 'object')) {
-        var opts = arguments.length === 1 ? arguments[0] : undefined;
-        return new Promise(function(resolve, reject) {
-          nativeMethod.apply(self, [resolve, reject, opts]);
-        });
-      } else {
-        return nativeMethod.apply(this, arguments);
-      }
-    };
-  });
-
-  ['setLocalDescription', 'setRemoteDescription',
-      'addIceCandidate'].forEach(function(method) {
-    var nativeMethod = webkitRTCPeerConnection.prototype[method];
-    webkitRTCPeerConnection.prototype[method] = function() {
-      var args = arguments;
-      var self = this;
-      return new Promise(function(resolve, reject) {
-        nativeMethod.apply(self, [args[0],
-            function() {
-              resolve();
-              if (args.length >= 2) {
-                args[1].apply(null, []);
-              }
-            },
-            function(err) {
-              reject(err);
-              if (args.length >= 3) {
-                args[2].apply(null, [err]);
-              }
-            }]
-          );
-      });
-    };
-  });
-
-  // getUserMedia constraints shim.
-  var constraintsToChrome = function(c) {
-    if (typeof c !== 'object' || c.mandatory || c.optional) {
-      return c;
-    }
-    var cc = {};
-    Object.keys(c).forEach(function(key) {
-      if (key === 'require' || key === 'advanced' || key === 'mediaSource') {
-        return;
-      }
-      var r = (typeof c[key] === 'object') ? c[key] : {ideal: c[key]};
-      if (r.exact !== undefined && typeof r.exact === 'number') {
-        r.min = r.max = r.exact;
-      }
-      var oldname = function(prefix, name) {
-        if (prefix) {
-          return prefix + name.charAt(0).toUpperCase() + name.slice(1);
-        }
-        return (name === 'deviceId') ? 'sourceId' : name;
-      };
-      if (r.ideal !== undefined) {
-        cc.optional = cc.optional || [];
-        var oc = {};
-        if (typeof r.ideal === 'number') {
-          oc[oldname('min', key)] = r.ideal;
-          cc.optional.push(oc);
-          oc = {};
-          oc[oldname('max', key)] = r.ideal;
-          cc.optional.push(oc);
-        } else {
-          oc[oldname('', key)] = r.ideal;
-          cc.optional.push(oc);
-        }
-      }
-      if (r.exact !== undefined && typeof r.exact !== 'number') {
-        cc.mandatory = cc.mandatory || {};
-        cc.mandatory[oldname('', key)] = r.exact;
-      } else {
-        ['min', 'max'].forEach(function(mix) {
-          if (r[mix] !== undefined) {
-            cc.mandatory = cc.mandatory || {};
-            cc.mandatory[oldname(mix, key)] = r[mix];
-          }
-        });
-      }
-    });
-    if (c.advanced) {
-      cc.optional = (cc.optional || []).concat(c.advanced);
-    }
-    return cc;
-  };
-
-  getUserMedia = function(constraints, onSuccess, onError) {
-    if (constraints.audio) {
-      constraints.audio = constraintsToChrome(constraints.audio);
-    }
-    if (constraints.video) {
-      constraints.video = constraintsToChrome(constraints.video);
-    }
-    webrtcUtils.log('chrome: ' + JSON.stringify(constraints));
-    return navigator.webkitGetUserMedia(constraints, onSuccess, onError);
-  };
-  navigator.getUserMedia = getUserMedia;
-
-  if (!navigator.mediaDevices) {
-    navigator.mediaDevices = {getUserMedia: requestUserMedia,
-                              enumerateDevices: function() {
-      return new Promise(function(resolve) {
-        var kinds = {audio: 'audioinput', video: 'videoinput'};
-        return MediaStreamTrack.getSources(function(devices) {
-          resolve(devices.map(function(device) {
-            return {label: device.label,
-                    kind: kinds[device.kind],
-                    deviceId: device.id,
-                    groupId: ''};
-          }));
-        });
-      });
-    }};
-  }
-
-  // A shim for getUserMedia method on the mediaDevices object.
-  // TODO(KaptenJansson) remove once implemented in Chrome stable.
-  if (!navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia = function(constraints) {
-      return requestUserMedia(constraints);
-    };
-  } else {
-    // Even though Chrome 45 has navigator.mediaDevices and a getUserMedia
-    // function which returns a Promise, it does not accept spec-style
-    // constraints.
-    var origGetUserMedia = navigator.mediaDevices.getUserMedia.
-        bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = function(c) {
-      webrtcUtils.log('spec:   ' + JSON.stringify(c)); // whitespace for alignment
-      c.audio = constraintsToChrome(c.audio);
-      c.video = constraintsToChrome(c.video);
-      webrtcUtils.log('chrome: ' + JSON.stringify(c));
-      return origGetUserMedia(c);
-    };
-  }
-
-  // Dummy devicechange event methods.
-  // TODO(KaptenJansson) remove once implemented in Chrome stable.
-  if (typeof navigator.mediaDevices.addEventListener === 'undefined') {
-    navigator.mediaDevices.addEventListener = function() {
-      webrtcUtils.log('Dummy mediaDevices.addEventListener called.');
-    };
-  }
-  if (typeof navigator.mediaDevices.removeEventListener === 'undefined') {
-    navigator.mediaDevices.removeEventListener = function() {
-      webrtcUtils.log('Dummy mediaDevices.removeEventListener called.');
-    };
-  }
-
-  // Attach a media stream to an element.
-  attachMediaStream = function(element, stream) {
-    if (webrtcDetectedVersion >= 43) {
-      element.srcObject = stream;
-    } else if (typeof element.src !== 'undefined') {
-      element.src = URL.createObjectURL(stream);
-    } else {
-      webrtcUtils.log('Error attaching stream to element.');
-    }
-  };
-  reattachMediaStream = function(to, from) {
-    if (webrtcDetectedVersion >= 43) {
-      to.srcObject = from.srcObject;
-    } else {
-      to.src = from.src;
-    }
-  };
-
-} else if (navigator.mediaDevices && navigator.userAgent.match(
-    /Edge\/(\d+).(\d+)$/)) {
-  webrtcUtils.log('This appears to be Edge');
-  webrtcDetectedBrowser = 'edge';
-
-  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
-      /Edge\/(\d+).(\d+)$/, 2);
-
-  // the minimum version still supported by adapter.
-  webrtcMinimumVersion = 12;
-} else {
-  webrtcUtils.log('Browser does not appear to be WebRTC-capable');
-}
-
-// Returns the result of getUserMedia as a Promise.
-function requestUserMedia(constraints) {
-  return new Promise(function(resolve, reject) {
-    getUserMedia(constraints, resolve, reject);
-  });
-}
-
-var webrtcTesting = {};
-try {
-  Object.defineProperty(webrtcTesting, 'version', {
-    set: function(version) {
-      webrtcDetectedVersion = version;
-    }
-  });
-} catch (e) {}
-
-if (typeof module !== 'undefined') {
-  var RTCPeerConnection;
-  if (typeof window !== 'undefined') {
-    RTCPeerConnection = window.RTCPeerConnection;
-  }
-  module.exports = {
-    RTCPeerConnection: RTCPeerConnection,
-    getUserMedia: getUserMedia,
-    attachMediaStream: attachMediaStream,
-    reattachMediaStream: reattachMediaStream,
-    webrtcDetectedBrowser: webrtcDetectedBrowser,
-    webrtcDetectedVersion: webrtcDetectedVersion,
-    webrtcMinimumVersion: webrtcMinimumVersion,
-    webrtcTesting: webrtcTesting,
-    webrtcUtils: webrtcUtils
-    //requestUserMedia: not exposed on purpose.
-    //trace: not exposed on purpose.
-  };
-} else if ((typeof require === 'function') && (typeof define === 'function')) {
-  // Expose objects and functions when RequireJS is doing the loading.
-  define([], function() {
-    return {
-      RTCPeerConnection: window.RTCPeerConnection,
-      getUserMedia: getUserMedia,
-      attachMediaStream: attachMediaStream,
-      reattachMediaStream: reattachMediaStream,
-      webrtcDetectedBrowser: webrtcDetectedBrowser,
-      webrtcDetectedVersion: webrtcDetectedVersion,
-      webrtcMinimumVersion: webrtcMinimumVersion,
-      webrtcTesting: webrtcTesting,
-      webrtcUtils: webrtcUtils
-      //requestUserMedia: not exposed on purpose.
-      //trace: not exposed on purpose.
-    };
-  });
-}
-
-},{}],14:[function(require,module,exports){
+},{"webrtc-adapter-test":13}],14:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -2337,365 +1797,7 @@ Peer.prototype.sendFile = function (file) {
 
 module.exports = Peer;
 
-},{"filetransfer":16,"rtcpeerconnection":15,"util":8,"webrtcsupport":4,"wildemitter":5}],11:[function(require,module,exports){
-
-module.exports = require('./lib/');
-
-},{"./lib/":17}],18:[function(require,module,exports){
-// created by @HenrikJoreteg
-var prefix;
-var version;
-
-if (window.mozRTCPeerConnection || navigator.mozGetUserMedia) {
-    prefix = 'moz';
-    version = parseInt(navigator.userAgent.match(/Firefox\/([0-9]+)\./)[1], 10);
-} else if (window.webkitRTCPeerConnection || navigator.webkitGetUserMedia) {
-    prefix = 'webkit';
-    version = navigator.userAgent.match(/Chrom(e|ium)/) && parseInt(navigator.userAgent.match(/Chrom(e|ium)\/([0-9]+)\./)[2], 10);
-}
-
-var PC = window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
-var IceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
-var SessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
-var MediaStream = window.webkitMediaStream || window.MediaStream;
-var screenSharing = window.location.protocol === 'https:' &&
-    ((prefix === 'webkit' && version >= 26) ||
-     (prefix === 'moz' && version >= 33))
-var AudioContext = window.AudioContext || window.webkitAudioContext;
-var videoEl = document.createElement('video');
-var supportVp8 = videoEl && videoEl.canPlayType && videoEl.canPlayType('video/webm; codecs="vp8", vorbis') === "probably";
-var getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia || navigator.mozGetUserMedia;
-
-// export support flags and constructors.prototype && PC
-module.exports = {
-    prefix: prefix,
-    browserVersion: version,
-    support: !!PC && supportVp8 && !!getUserMedia,
-    // new support style
-    supportRTCPeerConnection: !!PC,
-    supportVp8: supportVp8,
-    supportGetUserMedia: !!getUserMedia,
-    supportDataChannel: !!(PC && PC.prototype && PC.prototype.createDataChannel),
-    supportWebAudio: !!(AudioContext && AudioContext.prototype.createMediaStreamSource),
-    supportMediaStream: !!(MediaStream && MediaStream.prototype.removeTrack),
-    supportScreenSharing: !!screenSharing,
-    // old deprecated style. Dont use this anymore
-    dataChannel: !!(PC && PC.prototype && PC.prototype.createDataChannel),
-    webAudio: !!(AudioContext && AudioContext.prototype.createMediaStreamSource),
-    mediaStream: !!(MediaStream && MediaStream.prototype.removeTrack),
-    screenSharing: !!screenSharing,
-    // constructors
-    AudioContext: AudioContext,
-    PeerConnection: PC,
-    SessionDescription: SessionDescription,
-    IceCandidate: IceCandidate,
-    MediaStream: MediaStream,
-    getUserMedia: getUserMedia
-};
-
-},{}],10:[function(require,module,exports){
-var util = require('util');
-var hark = require('hark');
-var webrtc = require('webrtcsupport');
-var getUserMedia = require('getusermedia');
-var getScreenMedia = require('getscreenmedia');
-var WildEmitter = require('wildemitter');
-var GainController = require('mediastream-gain');
-var mockconsole = require('mockconsole');
-
-
-function LocalMedia(opts) {
-    WildEmitter.call(this);
-
-    var config = this.config = {
-        autoAdjustMic: false,
-        detectSpeakingEvents: false,
-        audioFallback: false,
-        media: {
-            audio: true,
-            video: true
-        },
-        logger: mockconsole
-    };
-
-    var item;
-    for (item in opts) {
-        this.config[item] = opts[item];
-    }
-
-    this.logger = config.logger;
-    this._log = this.logger.log.bind(this.logger, 'LocalMedia:');
-    this._logerror = this.logger.error.bind(this.logger, 'LocalMedia:');
-
-    this.screenSharingSupport = webrtc.screenSharing;
-
-    this.localStreams = [];
-    this.localScreens = [];
-
-    if (!webrtc.support) {
-        this._logerror('Your browser does not support local media capture.');
-    }
-}
-
-util.inherits(LocalMedia, WildEmitter);
-
-
-LocalMedia.prototype.start = function (mediaConstraints, cb) {
-    var self = this;
-    var constraints = mediaConstraints || this.config.media;
-
-    getUserMedia(constraints, function (err, stream) {
-
-        if (!err) {
-            if (constraints.audio && self.config.detectSpeakingEvents) {
-                self.setupAudioMonitor(stream, self.config.harkOptions);
-            }
-            self.localStreams.push(stream);
-
-            if (self.config.autoAdjustMic) {
-                self.gainController = new GainController(stream);
-                // start out somewhat muted if we can track audio
-                self.setMicIfEnabled(0.5);
-            }
-
-            // TODO: might need to migrate to the video tracks onended
-            // FIXME: firefox does not seem to trigger this...
-            stream.onended = function () {
-                /*
-                var idx = self.localStreams.indexOf(stream);
-                if (idx > -1) {
-                    self.localScreens.splice(idx, 1);
-                }
-                self.emit('localStreamStopped', stream);
-                */
-            };
-
-            self.emit('localStream', stream);
-        } else {
-            // Fallback for users without a camera
-            if (self.config.audioFallback && err.name === 'DevicesNotFoundError' && constraints.video !== false) {
-                constraints.video = false;
-                self.start(constraints, cb);
-                return;
-            }
-        }
-        if (cb) {
-            return cb(err, stream);
-        }
-    });
-};
-
-LocalMedia.prototype.stop = function (stream) {
-    var self = this;
-    // FIXME: duplicates cleanup code until fixed in FF
-    if (stream) {
-        stream.getTracks().forEach(function (track) { track.stop(); });
-        var idx = self.localStreams.indexOf(stream);
-        if (idx > -1) {
-            self.emit('localStreamStopped', stream);
-            self.localStreams = self.localStreams.splice(idx, 1);
-        } else {
-            idx = self.localScreens.indexOf(stream);
-            if (idx > -1) {
-                self.emit('localScreenStopped', stream);
-                self.localScreens = self.localScreens.splice(idx, 1);
-            }
-        }
-    } else {
-        this.stopStreams();
-        this.stopScreenShare();
-    }
-};
-
-LocalMedia.prototype.stopStreams = function () {
-    var self = this;
-    if (this.audioMonitor) {
-        this.audioMonitor.stop();
-        delete this.audioMonitor;
-    }
-    this.localStreams.forEach(function (stream) {
-        stream.getTracks().forEach(function (track) { track.stop(); });
-        self.emit('localStreamStopped', stream);
-    });
-    this.localStreams = [];
-};
-
-LocalMedia.prototype.startScreenShare = function (cb) {
-    var self = this;
-    getScreenMedia(function (err, stream) {
-        if (!err) {
-            self.localScreens.push(stream);
-
-            // TODO: might need to migrate to the video tracks onended
-            // Firefox does not support .onended but it does not support
-            // screensharing either
-            stream.onended = function () {
-                var idx = self.localScreens.indexOf(stream);
-                if (idx > -1) {
-                    self.localScreens.splice(idx, 1);
-                }
-                self.emit('localScreenStopped', stream);
-            };
-            self.emit('localScreen', stream);
-        }
-
-        // enable the callback
-        if (cb) {
-            return cb(err, stream);
-        }
-    });
-};
-
-LocalMedia.prototype.stopScreenShare = function (stream) {
-    var self = this;
-    if (stream) {
-        stream.getTracks().forEach(function (track) { track.stop(); });
-        this.emit('localScreenStopped', stream);
-    } else {
-        this.localScreens.forEach(function (stream) {
-            stream.getTracks().forEach(function (track) { track.stop(); });
-            self.emit('localScreenStopped', stream);
-        });
-        this.localScreens = [];
-    }
-};
-
-// Audio controls
-LocalMedia.prototype.mute = function () {
-    this._audioEnabled(false);
-    this.hardMuted = true;
-    this.emit('audioOff');
-};
-
-LocalMedia.prototype.unmute = function () {
-    this._audioEnabled(true);
-    this.hardMuted = false;
-    this.emit('audioOn');
-};
-
-LocalMedia.prototype.setupAudioMonitor = function (stream, harkOptions) {
-    this._log('Setup audio');
-    var audio = this.audioMonitor = hark(stream, harkOptions);
-    var self = this;
-    var timeout;
-
-    audio.on('speaking', function () {
-        self.emit('speaking');
-        if (self.hardMuted) {
-            return;
-        }
-        self.setMicIfEnabled(1);
-    });
-
-    audio.on('stopped_speaking', function () {
-        if (timeout) {
-            clearTimeout(timeout);
-        }
-
-        timeout = setTimeout(function () {
-            self.emit('stoppedSpeaking');
-            if (self.hardMuted) {
-                return;
-            }
-            self.setMicIfEnabled(0.5);
-        }, 1000);
-    });
-    audio.on('volume_change', function (volume, treshold) {
-        self.emit('volumeChange', volume, treshold);
-    });
-};
-
-// We do this as a seperate method in order to
-// still leave the "setMicVolume" as a working
-// method.
-LocalMedia.prototype.setMicIfEnabled = function (volume) {
-    if (!this.config.autoAdjustMic) {
-        return;
-    }
-    this.gainController.setGain(volume);
-};
-
-// Video controls
-LocalMedia.prototype.pauseVideo = function () {
-    this._videoEnabled(false);
-    this.emit('videoOff');
-};
-LocalMedia.prototype.resumeVideo = function () {
-    this._videoEnabled(true);
-    this.emit('videoOn');
-};
-
-// Combined controls
-LocalMedia.prototype.pause = function () {
-    this.mute();
-    this.pauseVideo();
-};
-LocalMedia.prototype.resume = function () {
-    this.unmute();
-    this.resumeVideo();
-};
-
-// Internal methods for enabling/disabling audio/video
-LocalMedia.prototype._audioEnabled = function (bool) {
-    // work around for chrome 27 bug where disabling tracks
-    // doesn't seem to work (works in canary, remove when working)
-    this.setMicIfEnabled(bool ? 1 : 0);
-    this.localStreams.forEach(function (stream) {
-        stream.getAudioTracks().forEach(function (track) {
-            track.enabled = !!bool;
-        });
-    });
-};
-LocalMedia.prototype._videoEnabled = function (bool) {
-    this.localStreams.forEach(function (stream) {
-        stream.getVideoTracks().forEach(function (track) {
-            track.enabled = !!bool;
-        });
-    });
-};
-
-// check if all audio streams are enabled
-LocalMedia.prototype.isAudioEnabled = function () {
-    var enabled = true;
-    this.localStreams.forEach(function (stream) {
-        stream.getAudioTracks().forEach(function (track) {
-            enabled = enabled && track.enabled;
-        });
-    });
-    return enabled;
-};
-
-// check if all video streams are enabled
-LocalMedia.prototype.isVideoEnabled = function () {
-    var enabled = true;
-    this.localStreams.forEach(function (stream) {
-        stream.getVideoTracks().forEach(function (track) {
-            enabled = enabled && track.enabled;
-        });
-    });
-    return enabled;
-};
-
-// Backwards Compat
-LocalMedia.prototype.startLocalMedia = LocalMedia.prototype.start;
-LocalMedia.prototype.stopLocalMedia = LocalMedia.prototype.stop;
-
-// fallback for old .localStream behaviour
-Object.defineProperty(LocalMedia.prototype, 'localStream', {
-    get: function () {
-        return this.localStreams.length > 0 ? this.localStreams[0] : null;
-    }
-});
-// fallback for old .localScreen behaviour
-Object.defineProperty(LocalMedia.prototype, 'localScreen', {
-    get: function () {
-        return this.localScreens.length > 0 ? this.localScreens[0] : null;
-    }
-});
-
-module.exports = LocalMedia;
-
-},{"getscreenmedia":20,"getusermedia":21,"hark":19,"mediastream-gain":22,"mockconsole":7,"util":8,"webrtcsupport":18,"wildemitter":5}],23:[function(require,module,exports){
+},{"filetransfer":16,"rtcpeerconnection":15,"util":8,"webrtcsupport":5,"wildemitter":4}],13:[function(require,module,exports){
 /*
  *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
  *
@@ -3245,7 +2347,1003 @@ if (typeof module !== 'undefined') {
   });
 }
 
-},{}],15:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
+
+module.exports = require('./lib/');
+
+},{"./lib/":17}],18:[function(require,module,exports){
+// created by @HenrikJoreteg
+var prefix;
+var version;
+
+if (window.mozRTCPeerConnection || navigator.mozGetUserMedia) {
+    prefix = 'moz';
+    version = parseInt(navigator.userAgent.match(/Firefox\/([0-9]+)\./)[1], 10);
+} else if (window.webkitRTCPeerConnection || navigator.webkitGetUserMedia) {
+    prefix = 'webkit';
+    version = navigator.userAgent.match(/Chrom(e|ium)/) && parseInt(navigator.userAgent.match(/Chrom(e|ium)\/([0-9]+)\./)[2], 10);
+}
+
+var PC = window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+var IceCandidate = window.mozRTCIceCandidate || window.RTCIceCandidate;
+var SessionDescription = window.mozRTCSessionDescription || window.RTCSessionDescription;
+var MediaStream = window.webkitMediaStream || window.MediaStream;
+var screenSharing = window.location.protocol === 'https:' &&
+    ((prefix === 'webkit' && version >= 26) ||
+     (prefix === 'moz' && version >= 33))
+var AudioContext = window.AudioContext || window.webkitAudioContext;
+var videoEl = document.createElement('video');
+var supportVp8 = videoEl && videoEl.canPlayType && videoEl.canPlayType('video/webm; codecs="vp8", vorbis') === "probably";
+var getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.msGetUserMedia || navigator.mozGetUserMedia;
+
+// export support flags and constructors.prototype && PC
+module.exports = {
+    prefix: prefix,
+    browserVersion: version,
+    support: !!PC && supportVp8 && !!getUserMedia,
+    // new support style
+    supportRTCPeerConnection: !!PC,
+    supportVp8: supportVp8,
+    supportGetUserMedia: !!getUserMedia,
+    supportDataChannel: !!(PC && PC.prototype && PC.prototype.createDataChannel),
+    supportWebAudio: !!(AudioContext && AudioContext.prototype.createMediaStreamSource),
+    supportMediaStream: !!(MediaStream && MediaStream.prototype.removeTrack),
+    supportScreenSharing: !!screenSharing,
+    // old deprecated style. Dont use this anymore
+    dataChannel: !!(PC && PC.prototype && PC.prototype.createDataChannel),
+    webAudio: !!(AudioContext && AudioContext.prototype.createMediaStreamSource),
+    mediaStream: !!(MediaStream && MediaStream.prototype.removeTrack),
+    screenSharing: !!screenSharing,
+    // constructors
+    AudioContext: AudioContext,
+    PeerConnection: PC,
+    SessionDescription: SessionDescription,
+    IceCandidate: IceCandidate,
+    MediaStream: MediaStream,
+    getUserMedia: getUserMedia
+};
+
+},{}],10:[function(require,module,exports){
+var util = require('util');
+var hark = require('hark');
+var webrtc = require('webrtcsupport');
+var getUserMedia = require('getusermedia');
+var getScreenMedia = require('getscreenmedia');
+var WildEmitter = require('wildemitter');
+var GainController = require('mediastream-gain');
+var mockconsole = require('mockconsole');
+
+
+function LocalMedia(opts) {
+    WildEmitter.call(this);
+
+    var config = this.config = {
+        autoAdjustMic: false,
+        detectSpeakingEvents: false,
+        audioFallback: false,
+        media: {
+            audio: true,
+            video: true
+        },
+        logger: mockconsole
+    };
+
+    var item;
+    for (item in opts) {
+        this.config[item] = opts[item];
+    }
+
+    this.logger = config.logger;
+    this._log = this.logger.log.bind(this.logger, 'LocalMedia:');
+    this._logerror = this.logger.error.bind(this.logger, 'LocalMedia:');
+
+    this.screenSharingSupport = webrtc.screenSharing;
+
+    this.localStreams = [];
+    this.localScreens = [];
+
+    if (!webrtc.support) {
+        this._logerror('Your browser does not support local media capture.');
+    }
+}
+
+util.inherits(LocalMedia, WildEmitter);
+
+
+LocalMedia.prototype.start = function (mediaConstraints, cb) {
+    var self = this;
+    var constraints = mediaConstraints || this.config.media;
+
+    getUserMedia(constraints, function (err, stream) {
+
+        if (!err) {
+            if (constraints.audio && self.config.detectSpeakingEvents) {
+                self.setupAudioMonitor(stream, self.config.harkOptions);
+            }
+            self.localStreams.push(stream);
+
+            if (self.config.autoAdjustMic) {
+                self.gainController = new GainController(stream);
+                // start out somewhat muted if we can track audio
+                self.setMicIfEnabled(0.5);
+            }
+
+            // TODO: might need to migrate to the video tracks onended
+            // FIXME: firefox does not seem to trigger this...
+            stream.onended = function () {
+                /*
+                var idx = self.localStreams.indexOf(stream);
+                if (idx > -1) {
+                    self.localScreens.splice(idx, 1);
+                }
+                self.emit('localStreamStopped', stream);
+                */
+            };
+
+            self.emit('localStream', stream);
+        } else {
+            // Fallback for users without a camera
+            if (self.config.audioFallback && err.name === 'DevicesNotFoundError' && constraints.video !== false) {
+                constraints.video = false;
+                self.start(constraints, cb);
+                return;
+            }
+        }
+        if (cb) {
+            return cb(err, stream);
+        }
+    });
+};
+
+LocalMedia.prototype.stop = function (stream) {
+    var self = this;
+    // FIXME: duplicates cleanup code until fixed in FF
+    if (stream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        var idx = self.localStreams.indexOf(stream);
+        if (idx > -1) {
+            self.emit('localStreamStopped', stream);
+            self.localStreams = self.localStreams.splice(idx, 1);
+        } else {
+            idx = self.localScreens.indexOf(stream);
+            if (idx > -1) {
+                self.emit('localScreenStopped', stream);
+                self.localScreens = self.localScreens.splice(idx, 1);
+            }
+        }
+    } else {
+        this.stopStreams();
+        this.stopScreenShare();
+    }
+};
+
+LocalMedia.prototype.stopStreams = function () {
+    var self = this;
+    if (this.audioMonitor) {
+        this.audioMonitor.stop();
+        delete this.audioMonitor;
+    }
+    this.localStreams.forEach(function (stream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        self.emit('localStreamStopped', stream);
+    });
+    this.localStreams = [];
+};
+
+LocalMedia.prototype.startScreenShare = function (cb) {
+    var self = this;
+    getScreenMedia(function (err, stream) {
+        if (!err) {
+            self.localScreens.push(stream);
+
+            // TODO: might need to migrate to the video tracks onended
+            // Firefox does not support .onended but it does not support
+            // screensharing either
+            stream.onended = function () {
+                var idx = self.localScreens.indexOf(stream);
+                if (idx > -1) {
+                    self.localScreens.splice(idx, 1);
+                }
+                self.emit('localScreenStopped', stream);
+            };
+            self.emit('localScreen', stream);
+        }
+
+        // enable the callback
+        if (cb) {
+            return cb(err, stream);
+        }
+    });
+};
+
+LocalMedia.prototype.stopScreenShare = function (stream) {
+    var self = this;
+    if (stream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        this.emit('localScreenStopped', stream);
+    } else {
+        this.localScreens.forEach(function (stream) {
+            stream.getTracks().forEach(function (track) { track.stop(); });
+            self.emit('localScreenStopped', stream);
+        });
+        this.localScreens = [];
+    }
+};
+
+// Audio controls
+LocalMedia.prototype.mute = function () {
+    this._audioEnabled(false);
+    this.hardMuted = true;
+    this.emit('audioOff');
+};
+
+LocalMedia.prototype.unmute = function () {
+    this._audioEnabled(true);
+    this.hardMuted = false;
+    this.emit('audioOn');
+};
+
+LocalMedia.prototype.setupAudioMonitor = function (stream, harkOptions) {
+    this._log('Setup audio');
+    var audio = this.audioMonitor = hark(stream, harkOptions);
+    var self = this;
+    var timeout;
+
+    audio.on('speaking', function () {
+        self.emit('speaking');
+        if (self.hardMuted) {
+            return;
+        }
+        self.setMicIfEnabled(1);
+    });
+
+    audio.on('stopped_speaking', function () {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+
+        timeout = setTimeout(function () {
+            self.emit('stoppedSpeaking');
+            if (self.hardMuted) {
+                return;
+            }
+            self.setMicIfEnabled(0.5);
+        }, 1000);
+    });
+    audio.on('volume_change', function (volume, treshold) {
+        self.emit('volumeChange', volume, treshold);
+    });
+};
+
+// We do this as a seperate method in order to
+// still leave the "setMicVolume" as a working
+// method.
+LocalMedia.prototype.setMicIfEnabled = function (volume) {
+    if (!this.config.autoAdjustMic) {
+        return;
+    }
+    this.gainController.setGain(volume);
+};
+
+// Video controls
+LocalMedia.prototype.pauseVideo = function () {
+    this._videoEnabled(false);
+    this.emit('videoOff');
+};
+LocalMedia.prototype.resumeVideo = function () {
+    this._videoEnabled(true);
+    this.emit('videoOn');
+};
+
+// Combined controls
+LocalMedia.prototype.pause = function () {
+    this.mute();
+    this.pauseVideo();
+};
+LocalMedia.prototype.resume = function () {
+    this.unmute();
+    this.resumeVideo();
+};
+
+// Internal methods for enabling/disabling audio/video
+LocalMedia.prototype._audioEnabled = function (bool) {
+    // work around for chrome 27 bug where disabling tracks
+    // doesn't seem to work (works in canary, remove when working)
+    this.setMicIfEnabled(bool ? 1 : 0);
+    this.localStreams.forEach(function (stream) {
+        stream.getAudioTracks().forEach(function (track) {
+            track.enabled = !!bool;
+        });
+    });
+};
+LocalMedia.prototype._videoEnabled = function (bool) {
+    this.localStreams.forEach(function (stream) {
+        stream.getVideoTracks().forEach(function (track) {
+            track.enabled = !!bool;
+        });
+    });
+};
+
+// check if all audio streams are enabled
+LocalMedia.prototype.isAudioEnabled = function () {
+    var enabled = true;
+    this.localStreams.forEach(function (stream) {
+        stream.getAudioTracks().forEach(function (track) {
+            enabled = enabled && track.enabled;
+        });
+    });
+    return enabled;
+};
+
+// check if all video streams are enabled
+LocalMedia.prototype.isVideoEnabled = function () {
+    var enabled = true;
+    this.localStreams.forEach(function (stream) {
+        stream.getVideoTracks().forEach(function (track) {
+            enabled = enabled && track.enabled;
+        });
+    });
+    return enabled;
+};
+
+// Backwards Compat
+LocalMedia.prototype.startLocalMedia = LocalMedia.prototype.start;
+LocalMedia.prototype.stopLocalMedia = LocalMedia.prototype.stop;
+
+// fallback for old .localStream behaviour
+Object.defineProperty(LocalMedia.prototype, 'localStream', {
+    get: function () {
+        return this.localStreams.length > 0 ? this.localStreams[0] : null;
+    }
+});
+// fallback for old .localScreen behaviour
+Object.defineProperty(LocalMedia.prototype, 'localScreen', {
+    get: function () {
+        return this.localScreens.length > 0 ? this.localScreens[0] : null;
+    }
+});
+
+module.exports = LocalMedia;
+
+},{"getscreenmedia":21,"getusermedia":20,"hark":19,"mediastream-gain":22,"mockconsole":7,"util":8,"webrtcsupport":18,"wildemitter":4}],23:[function(require,module,exports){
+/*
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+ */
+
+/* More information about these options at jshint.com/docs/options */
+/* jshint browser: true, camelcase: true, curly: true, devel: true,
+   eqeqeq: true, forin: false, globalstrict: true, node: true,
+   quotmark: single, undef: true, unused: strict */
+/* global mozRTCIceCandidate, mozRTCPeerConnection, Promise,
+mozRTCSessionDescription, webkitRTCPeerConnection, MediaStreamTrack */
+/* exported trace,requestUserMedia */
+
+'use strict';
+
+var getUserMedia = null;
+var attachMediaStream = null;
+var reattachMediaStream = null;
+var webrtcDetectedBrowser = null;
+var webrtcDetectedVersion = null;
+var webrtcMinimumVersion = null;
+var webrtcUtils = {
+  log: function() {
+    // suppress console.log output when being included as a module.
+    if (typeof module !== 'undefined' ||
+        typeof require === 'function' && typeof define === 'function') {
+      return;
+    }
+    console.log.apply(console, arguments);
+  },
+  extractVersion: function(uastring, expr, pos) {
+    var match = uastring.match(expr);
+    return match && match.length >= pos && parseInt(match[pos]);
+  }
+};
+
+function trace(text) {
+  // This function is used for logging.
+  if (text[text.length - 1] === '\n') {
+    text = text.substring(0, text.length - 1);
+  }
+  if (window.performance) {
+    var now = (window.performance.now() / 1000).toFixed(3);
+    webrtcUtils.log(now + ': ' + text);
+  } else {
+    webrtcUtils.log(text);
+  }
+}
+
+if (typeof window === 'object') {
+  if (window.HTMLMediaElement &&
+    !('srcObject' in window.HTMLMediaElement.prototype)) {
+    // Shim the srcObject property, once, when HTMLMediaElement is found.
+    Object.defineProperty(window.HTMLMediaElement.prototype, 'srcObject', {
+      get: function() {
+        // If prefixed srcObject property exists, return it.
+        // Otherwise use the shimmed property, _srcObject
+        return 'mozSrcObject' in this ? this.mozSrcObject : this._srcObject;
+      },
+      set: function(stream) {
+        if ('mozSrcObject' in this) {
+          this.mozSrcObject = stream;
+        } else {
+          // Use _srcObject as a private property for this shim
+          this._srcObject = stream;
+          // TODO: revokeObjectUrl(this.src) when !stream to release resources?
+          this.src = URL.createObjectURL(stream);
+        }
+      }
+    });
+  }
+  // Proxy existing globals
+  getUserMedia = window.navigator && window.navigator.getUserMedia;
+}
+
+// Attach a media stream to an element.
+attachMediaStream = function(element, stream) {
+  element.srcObject = stream;
+};
+
+reattachMediaStream = function(to, from) {
+  to.srcObject = from.srcObject;
+};
+
+if (typeof window === 'undefined' || !window.navigator) {
+  webrtcUtils.log('This does not appear to be a browser');
+  webrtcDetectedBrowser = 'not a browser';
+} else if (navigator.mozGetUserMedia && window.mozRTCPeerConnection) {
+  webrtcUtils.log('This appears to be Firefox');
+
+  webrtcDetectedBrowser = 'firefox';
+
+  // the detected firefox version.
+  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
+      /Firefox\/([0-9]+)\./, 1);
+
+  // the minimum firefox version still supported by adapter.
+  webrtcMinimumVersion = 31;
+
+  // The RTCPeerConnection object.
+  window.RTCPeerConnection = function(pcConfig, pcConstraints) {
+    if (webrtcDetectedVersion < 38) {
+      // .urls is not supported in FF < 38.
+      // create RTCIceServers with a single url.
+      if (pcConfig && pcConfig.iceServers) {
+        var newIceServers = [];
+        for (var i = 0; i < pcConfig.iceServers.length; i++) {
+          var server = pcConfig.iceServers[i];
+          if (server.hasOwnProperty('urls')) {
+            for (var j = 0; j < server.urls.length; j++) {
+              var newServer = {
+                url: server.urls[j]
+              };
+              if (server.urls[j].indexOf('turn') === 0) {
+                newServer.username = server.username;
+                newServer.credential = server.credential;
+              }
+              newIceServers.push(newServer);
+            }
+          } else {
+            newIceServers.push(pcConfig.iceServers[i]);
+          }
+        }
+        pcConfig.iceServers = newIceServers;
+      }
+    }
+    return new mozRTCPeerConnection(pcConfig, pcConstraints); // jscs:ignore requireCapitalizedConstructors
+  };
+
+  // The RTCSessionDescription object.
+  if (!window.RTCSessionDescription) {
+    window.RTCSessionDescription = mozRTCSessionDescription;
+  }
+
+  // The RTCIceCandidate object.
+  if (!window.RTCIceCandidate) {
+    window.RTCIceCandidate = mozRTCIceCandidate;
+  }
+
+  // getUserMedia constraints shim.
+  getUserMedia = function(constraints, onSuccess, onError) {
+    var constraintsToFF37 = function(c) {
+      if (typeof c !== 'object' || c.require) {
+        return c;
+      }
+      var require = [];
+      Object.keys(c).forEach(function(key) {
+        if (key === 'require' || key === 'advanced' || key === 'mediaSource') {
+          return;
+        }
+        var r = c[key] = (typeof c[key] === 'object') ?
+            c[key] : {ideal: c[key]};
+        if (r.min !== undefined ||
+            r.max !== undefined || r.exact !== undefined) {
+          require.push(key);
+        }
+        if (r.exact !== undefined) {
+          if (typeof r.exact === 'number') {
+            r.min = r.max = r.exact;
+          } else {
+            c[key] = r.exact;
+          }
+          delete r.exact;
+        }
+        if (r.ideal !== undefined) {
+          c.advanced = c.advanced || [];
+          var oc = {};
+          if (typeof r.ideal === 'number') {
+            oc[key] = {min: r.ideal, max: r.ideal};
+          } else {
+            oc[key] = r.ideal;
+          }
+          c.advanced.push(oc);
+          delete r.ideal;
+          if (!Object.keys(r).length) {
+            delete c[key];
+          }
+        }
+      });
+      if (require.length) {
+        c.require = require;
+      }
+      return c;
+    };
+    if (webrtcDetectedVersion < 38) {
+      webrtcUtils.log('spec: ' + JSON.stringify(constraints));
+      if (constraints.audio) {
+        constraints.audio = constraintsToFF37(constraints.audio);
+      }
+      if (constraints.video) {
+        constraints.video = constraintsToFF37(constraints.video);
+      }
+      webrtcUtils.log('ff37: ' + JSON.stringify(constraints));
+    }
+    return navigator.mozGetUserMedia(constraints, onSuccess, onError);
+  };
+
+  navigator.getUserMedia = getUserMedia;
+
+  // Shim for mediaDevices on older versions.
+  if (!navigator.mediaDevices) {
+    navigator.mediaDevices = {getUserMedia: requestUserMedia,
+      addEventListener: function() { },
+      removeEventListener: function() { }
+    };
+  }
+  navigator.mediaDevices.enumerateDevices =
+      navigator.mediaDevices.enumerateDevices || function() {
+    return new Promise(function(resolve) {
+      var infos = [
+        {kind: 'audioinput', deviceId: 'default', label: '', groupId: ''},
+        {kind: 'videoinput', deviceId: 'default', label: '', groupId: ''}
+      ];
+      resolve(infos);
+    });
+  };
+
+  if (webrtcDetectedVersion < 41) {
+    // Work around http://bugzil.la/1169665
+    var orgEnumerateDevices =
+        navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+    navigator.mediaDevices.enumerateDevices = function() {
+      return orgEnumerateDevices().then(undefined, function(e) {
+        if (e.name === 'NotFoundError') {
+          return [];
+        }
+        throw e;
+      });
+    };
+  }
+} else if (navigator.webkitGetUserMedia && window.webkitRTCPeerConnection) {
+  webrtcUtils.log('This appears to be Chrome');
+
+  webrtcDetectedBrowser = 'chrome';
+
+  // the detected chrome version.
+  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
+      /Chrom(e|ium)\/([0-9]+)\./, 2);
+
+  // the minimum chrome version still supported by adapter.
+  webrtcMinimumVersion = 38;
+
+  // The RTCPeerConnection object.
+  window.RTCPeerConnection = function(pcConfig, pcConstraints) {
+    // Translate iceTransportPolicy to iceTransports,
+    // see https://code.google.com/p/webrtc/issues/detail?id=4869
+    if (pcConfig && pcConfig.iceTransportPolicy) {
+      pcConfig.iceTransports = pcConfig.iceTransportPolicy;
+    }
+
+    var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints); // jscs:ignore requireCapitalizedConstructors
+    var origGetStats = pc.getStats.bind(pc);
+    pc.getStats = function(selector, successCallback, errorCallback) { // jshint ignore: line
+      var self = this;
+      var args = arguments;
+
+      // If selector is a function then we are in the old style stats so just
+      // pass back the original getStats format to avoid breaking old users.
+      if (arguments.length > 0 && typeof selector === 'function') {
+        return origGetStats(selector, successCallback);
+      }
+
+      var fixChromeStats = function(response) {
+        var standardReport = {};
+        var reports = response.result();
+        reports.forEach(function(report) {
+          var standardStats = {
+            id: report.id,
+            timestamp: report.timestamp,
+            type: report.type
+          };
+          report.names().forEach(function(name) {
+            standardStats[name] = report.stat(name);
+          });
+          standardReport[standardStats.id] = standardStats;
+        });
+
+        return standardReport;
+      };
+
+      if (arguments.length >= 2) {
+        var successCallbackWrapper = function(response) {
+          args[1](fixChromeStats(response));
+        };
+
+        return origGetStats.apply(this, [successCallbackWrapper, arguments[0]]);
+      }
+
+      // promise-support
+      return new Promise(function(resolve, reject) {
+        if (args.length === 1 && selector === null) {
+          origGetStats.apply(self, [
+              function(response) {
+                resolve.apply(null, [fixChromeStats(response)]);
+              }, reject]);
+        } else {
+          origGetStats.apply(self, [resolve, reject]);
+        }
+      });
+    };
+
+    return pc;
+  };
+
+  // add promise support
+  ['createOffer', 'createAnswer'].forEach(function(method) {
+    var nativeMethod = webkitRTCPeerConnection.prototype[method];
+    webkitRTCPeerConnection.prototype[method] = function() {
+      var self = this;
+      if (arguments.length < 1 || (arguments.length === 1 &&
+          typeof(arguments[0]) === 'object')) {
+        var opts = arguments.length === 1 ? arguments[0] : undefined;
+        return new Promise(function(resolve, reject) {
+          nativeMethod.apply(self, [resolve, reject, opts]);
+        });
+      } else {
+        return nativeMethod.apply(this, arguments);
+      }
+    };
+  });
+
+  ['setLocalDescription', 'setRemoteDescription',
+      'addIceCandidate'].forEach(function(method) {
+    var nativeMethod = webkitRTCPeerConnection.prototype[method];
+    webkitRTCPeerConnection.prototype[method] = function() {
+      var args = arguments;
+      var self = this;
+      return new Promise(function(resolve, reject) {
+        nativeMethod.apply(self, [args[0],
+            function() {
+              resolve();
+              if (args.length >= 2) {
+                args[1].apply(null, []);
+              }
+            },
+            function(err) {
+              reject(err);
+              if (args.length >= 3) {
+                args[2].apply(null, [err]);
+              }
+            }]
+          );
+      });
+    };
+  });
+
+  // getUserMedia constraints shim.
+  var constraintsToChrome = function(c) {
+    if (typeof c !== 'object' || c.mandatory || c.optional) {
+      return c;
+    }
+    var cc = {};
+    Object.keys(c).forEach(function(key) {
+      if (key === 'require' || key === 'advanced' || key === 'mediaSource') {
+        return;
+      }
+      var r = (typeof c[key] === 'object') ? c[key] : {ideal: c[key]};
+      if (r.exact !== undefined && typeof r.exact === 'number') {
+        r.min = r.max = r.exact;
+      }
+      var oldname = function(prefix, name) {
+        if (prefix) {
+          return prefix + name.charAt(0).toUpperCase() + name.slice(1);
+        }
+        return (name === 'deviceId') ? 'sourceId' : name;
+      };
+      if (r.ideal !== undefined) {
+        cc.optional = cc.optional || [];
+        var oc = {};
+        if (typeof r.ideal === 'number') {
+          oc[oldname('min', key)] = r.ideal;
+          cc.optional.push(oc);
+          oc = {};
+          oc[oldname('max', key)] = r.ideal;
+          cc.optional.push(oc);
+        } else {
+          oc[oldname('', key)] = r.ideal;
+          cc.optional.push(oc);
+        }
+      }
+      if (r.exact !== undefined && typeof r.exact !== 'number') {
+        cc.mandatory = cc.mandatory || {};
+        cc.mandatory[oldname('', key)] = r.exact;
+      } else {
+        ['min', 'max'].forEach(function(mix) {
+          if (r[mix] !== undefined) {
+            cc.mandatory = cc.mandatory || {};
+            cc.mandatory[oldname(mix, key)] = r[mix];
+          }
+        });
+      }
+    });
+    if (c.advanced) {
+      cc.optional = (cc.optional || []).concat(c.advanced);
+    }
+    return cc;
+  };
+
+  getUserMedia = function(constraints, onSuccess, onError) {
+    if (constraints.audio) {
+      constraints.audio = constraintsToChrome(constraints.audio);
+    }
+    if (constraints.video) {
+      constraints.video = constraintsToChrome(constraints.video);
+    }
+    webrtcUtils.log('chrome: ' + JSON.stringify(constraints));
+    return navigator.webkitGetUserMedia(constraints, onSuccess, onError);
+  };
+  navigator.getUserMedia = getUserMedia;
+
+  if (!navigator.mediaDevices) {
+    navigator.mediaDevices = {getUserMedia: requestUserMedia,
+                              enumerateDevices: function() {
+      return new Promise(function(resolve) {
+        var kinds = {audio: 'audioinput', video: 'videoinput'};
+        return MediaStreamTrack.getSources(function(devices) {
+          resolve(devices.map(function(device) {
+            return {label: device.label,
+                    kind: kinds[device.kind],
+                    deviceId: device.id,
+                    groupId: ''};
+          }));
+        });
+      });
+    }};
+  }
+
+  // A shim for getUserMedia method on the mediaDevices object.
+  // TODO(KaptenJansson) remove once implemented in Chrome stable.
+  if (!navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia = function(constraints) {
+      return requestUserMedia(constraints);
+    };
+  } else {
+    // Even though Chrome 45 has navigator.mediaDevices and a getUserMedia
+    // function which returns a Promise, it does not accept spec-style
+    // constraints.
+    var origGetUserMedia = navigator.mediaDevices.getUserMedia.
+        bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = function(c) {
+      webrtcUtils.log('spec:   ' + JSON.stringify(c)); // whitespace for alignment
+      c.audio = constraintsToChrome(c.audio);
+      c.video = constraintsToChrome(c.video);
+      webrtcUtils.log('chrome: ' + JSON.stringify(c));
+      return origGetUserMedia(c);
+    };
+  }
+
+  // Dummy devicechange event methods.
+  // TODO(KaptenJansson) remove once implemented in Chrome stable.
+  if (typeof navigator.mediaDevices.addEventListener === 'undefined') {
+    navigator.mediaDevices.addEventListener = function() {
+      webrtcUtils.log('Dummy mediaDevices.addEventListener called.');
+    };
+  }
+  if (typeof navigator.mediaDevices.removeEventListener === 'undefined') {
+    navigator.mediaDevices.removeEventListener = function() {
+      webrtcUtils.log('Dummy mediaDevices.removeEventListener called.');
+    };
+  }
+
+  // Attach a media stream to an element.
+  attachMediaStream = function(element, stream) {
+    if (webrtcDetectedVersion >= 43) {
+      element.srcObject = stream;
+    } else if (typeof element.src !== 'undefined') {
+      element.src = URL.createObjectURL(stream);
+    } else {
+      webrtcUtils.log('Error attaching stream to element.');
+    }
+  };
+  reattachMediaStream = function(to, from) {
+    if (webrtcDetectedVersion >= 43) {
+      to.srcObject = from.srcObject;
+    } else {
+      to.src = from.src;
+    }
+  };
+
+} else if (navigator.mediaDevices && navigator.userAgent.match(
+    /Edge\/(\d+).(\d+)$/)) {
+  webrtcUtils.log('This appears to be Edge');
+  webrtcDetectedBrowser = 'edge';
+
+  webrtcDetectedVersion = webrtcUtils.extractVersion(navigator.userAgent,
+      /Edge\/(\d+).(\d+)$/, 2);
+
+  // the minimum version still supported by adapter.
+  webrtcMinimumVersion = 12;
+} else {
+  webrtcUtils.log('Browser does not appear to be WebRTC-capable');
+}
+
+// Returns the result of getUserMedia as a Promise.
+function requestUserMedia(constraints) {
+  return new Promise(function(resolve, reject) {
+    getUserMedia(constraints, resolve, reject);
+  });
+}
+
+var webrtcTesting = {};
+try {
+  Object.defineProperty(webrtcTesting, 'version', {
+    set: function(version) {
+      webrtcDetectedVersion = version;
+    }
+  });
+} catch (e) {}
+
+if (typeof module !== 'undefined') {
+  var RTCPeerConnection;
+  if (typeof window !== 'undefined') {
+    RTCPeerConnection = window.RTCPeerConnection;
+  }
+  module.exports = {
+    RTCPeerConnection: RTCPeerConnection,
+    getUserMedia: getUserMedia,
+    attachMediaStream: attachMediaStream,
+    reattachMediaStream: reattachMediaStream,
+    webrtcDetectedBrowser: webrtcDetectedBrowser,
+    webrtcDetectedVersion: webrtcDetectedVersion,
+    webrtcMinimumVersion: webrtcMinimumVersion,
+    webrtcTesting: webrtcTesting,
+    webrtcUtils: webrtcUtils
+    //requestUserMedia: not exposed on purpose.
+    //trace: not exposed on purpose.
+  };
+} else if ((typeof require === 'function') && (typeof define === 'function')) {
+  // Expose objects and functions when RequireJS is doing the loading.
+  define([], function() {
+    return {
+      RTCPeerConnection: window.RTCPeerConnection,
+      getUserMedia: getUserMedia,
+      attachMediaStream: attachMediaStream,
+      reattachMediaStream: reattachMediaStream,
+      webrtcDetectedBrowser: webrtcDetectedBrowser,
+      webrtcDetectedVersion: webrtcDetectedVersion,
+      webrtcMinimumVersion: webrtcMinimumVersion,
+      webrtcTesting: webrtcTesting,
+      webrtcUtils: webrtcUtils
+      //requestUserMedia: not exposed on purpose.
+      //trace: not exposed on purpose.
+    };
+  });
+}
+
+},{}],16:[function(require,module,exports){
+var WildEmitter = require('wildemitter');
+var util = require('util');
+
+function Sender(opts) {
+    WildEmitter.call(this);
+    var options = opts || {};
+    this.config = {
+        chunksize: 16384,
+        pacing: 0
+    };
+    // set our config from options
+    var item;
+    for (item in options) {
+        this.config[item] = options[item];
+    }
+
+    this.file = null;
+    this.channel = null;
+}
+util.inherits(Sender, WildEmitter);
+
+Sender.prototype.send = function (file, channel) {
+    var self = this;
+    this.file = file;
+    this.channel = channel;
+    var sliceFile = function(offset) {
+        var reader = new window.FileReader();
+        reader.onload = (function() {
+            return function(e) {
+                self.channel.send(e.target.result);
+                self.emit('progress', offset, file.size, e.target.result);
+                if (file.size > offset + e.target.result.byteLength) {
+                    window.setTimeout(sliceFile, self.config.pacing, offset + self.config.chunksize);
+                } else {
+                    self.emit('progress', file.size, file.size, null);
+                    self.emit('sentFile');
+                }
+            };
+        })(file);
+        var slice = file.slice(offset, offset + self.config.chunksize);
+        reader.readAsArrayBuffer(slice);
+    };
+    window.setTimeout(sliceFile, 0, 0);
+};
+
+function Receiver() {
+    WildEmitter.call(this);
+
+    this.receiveBuffer = [];
+    this.received = 0;
+    this.metadata = {};
+    this.channel = null;
+}
+util.inherits(Receiver, WildEmitter);
+
+Receiver.prototype.receive = function (metadata, channel) {
+    var self = this;
+
+    if (metadata) {
+        this.metadata = metadata;
+    }
+    this.channel = channel;
+    // chrome only supports arraybuffers and those make it easier to calc the hash
+    channel.binaryType = 'arraybuffer';
+    this.channel.onmessage = function (event) {
+        var len = event.data.byteLength;
+        self.received += len;
+        self.receiveBuffer.push(event.data);
+
+        self.emit('progress', self.received, self.metadata.size, event.data);
+        if (self.received === self.metadata.size) {
+            self.emit('receivedFile', new window.Blob(self.receiveBuffer), self.metadata);
+            self.receiveBuffer = []; // discard receivebuffer
+        } else if (self.received > self.metadata.size) {
+            // FIXME
+            console.error('received more than expected, discarding...');
+            self.receiveBuffer = []; // just discard...
+
+        }
+    };
+};
+
+module.exports = {};
+module.exports.support = typeof window !== 'undefined' && window && window.File && window.FileReader && window.Blob;
+module.exports.Sender = Sender;
+module.exports.Receiver = Receiver;
+
+},{"util":8,"wildemitter":4}],15:[function(require,module,exports){
 var util = require('util');
 var each = require('lodash.foreach');
 var pluck = require('lodash.pluck');
@@ -4074,225 +4172,7 @@ PeerConnection.prototype.getStats = function (cb) {
 
 module.exports = PeerConnection;
 
-},{"lodash.foreach":26,"lodash.pluck":27,"sdp-jingle-json":24,"traceablepeerconnection":25,"util":8,"webrtc-adapter-test":23,"wildemitter":5}],16:[function(require,module,exports){
-var WildEmitter = require('wildemitter');
-var util = require('util');
-
-function Sender(opts) {
-    WildEmitter.call(this);
-    var options = opts || {};
-    this.config = {
-        chunksize: 16384,
-        pacing: 0
-    };
-    // set our config from options
-    var item;
-    for (item in options) {
-        this.config[item] = options[item];
-    }
-
-    this.file = null;
-    this.channel = null;
-}
-util.inherits(Sender, WildEmitter);
-
-Sender.prototype.send = function (file, channel) {
-    var self = this;
-    this.file = file;
-    this.channel = channel;
-    var sliceFile = function(offset) {
-        var reader = new window.FileReader();
-        reader.onload = (function() {
-            return function(e) {
-                self.channel.send(e.target.result);
-                self.emit('progress', offset, file.size, e.target.result);
-                if (file.size > offset + e.target.result.byteLength) {
-                    window.setTimeout(sliceFile, self.config.pacing, offset + self.config.chunksize);
-                } else {
-                    self.emit('progress', file.size, file.size, null);
-                    self.emit('sentFile');
-                }
-            };
-        })(file);
-        var slice = file.slice(offset, offset + self.config.chunksize);
-        reader.readAsArrayBuffer(slice);
-    };
-    window.setTimeout(sliceFile, 0, 0);
-};
-
-function Receiver() {
-    WildEmitter.call(this);
-
-    this.receiveBuffer = [];
-    this.received = 0;
-    this.metadata = {};
-    this.channel = null;
-}
-util.inherits(Receiver, WildEmitter);
-
-Receiver.prototype.receive = function (metadata, channel) {
-    var self = this;
-
-    if (metadata) {
-        this.metadata = metadata;
-    }
-    this.channel = channel;
-    // chrome only supports arraybuffers and those make it easier to calc the hash
-    channel.binaryType = 'arraybuffer';
-    this.channel.onmessage = function (event) {
-        var len = event.data.byteLength;
-        self.received += len;
-        self.receiveBuffer.push(event.data);
-
-        self.emit('progress', self.received, self.metadata.size, event.data);
-        if (self.received === self.metadata.size) {
-            self.emit('receivedFile', new window.Blob(self.receiveBuffer), self.metadata);
-            self.receiveBuffer = []; // discard receivebuffer
-        } else if (self.received > self.metadata.size) {
-            // FIXME
-            console.error('received more than expected, discarding...');
-            self.receiveBuffer = []; // just discard...
-
-        }
-    };
-};
-
-module.exports = {};
-module.exports.support = typeof window !== 'undefined' && window && window.File && window.FileReader && window.Blob;
-module.exports.Sender = Sender;
-module.exports.Receiver = Receiver;
-
-},{"util":8,"wildemitter":5}],19:[function(require,module,exports){
-var WildEmitter = require('wildemitter');
-
-function getMaxVolume (analyser, fftBins) {
-  var maxVolume = -Infinity;
-  analyser.getFloatFrequencyData(fftBins);
-
-  for(var i=4, ii=fftBins.length; i < ii; i++) {
-    if (fftBins[i] > maxVolume && fftBins[i] < 0) {
-      maxVolume = fftBins[i];
-    }
-  };
-
-  return maxVolume;
-}
-
-
-var audioContextType = window.AudioContext || window.webkitAudioContext;
-// use a single audio context due to hardware limits
-var audioContext = null;
-module.exports = function(stream, options) {
-  var harker = new WildEmitter();
-
-
-  // make it not break in non-supported browsers
-  if (!audioContextType) return harker;
-
-  //Config
-  var options = options || {},
-      smoothing = (options.smoothing || 0.1),
-      interval = (options.interval || 50),
-      threshold = options.threshold,
-      play = options.play,
-      history = options.history || 10,
-      running = true;
-
-  //Setup Audio Context
-  if (!audioContext) {
-    audioContext = new audioContextType();
-  }
-  var sourceNode, fftBins, analyser;
-
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 512;
-  analyser.smoothingTimeConstant = smoothing;
-  fftBins = new Float32Array(analyser.fftSize);
-
-  if (stream.jquery) stream = stream[0];
-  if (stream instanceof HTMLAudioElement || stream instanceof HTMLVideoElement) {
-    //Audio Tag
-    sourceNode = audioContext.createMediaElementSource(stream);
-    if (typeof play === 'undefined') play = true;
-    threshold = threshold || -50;
-  } else {
-    //WebRTC Stream
-    sourceNode = audioContext.createMediaStreamSource(stream);
-    threshold = threshold || -50;
-  }
-
-  sourceNode.connect(analyser);
-  if (play) analyser.connect(audioContext.destination);
-
-  harker.speaking = false;
-
-  harker.setThreshold = function(t) {
-    threshold = t;
-  };
-
-  harker.setInterval = function(i) {
-    interval = i;
-  };
-  
-  harker.stop = function() {
-    running = false;
-    harker.emit('volume_change', -100, threshold);
-    if (harker.speaking) {
-      harker.speaking = false;
-      harker.emit('stopped_speaking');
-    }
-  };
-  harker.speakingHistory = [];
-  for (var i = 0; i < history; i++) {
-      harker.speakingHistory.push(0);
-  }
-
-  // Poll the analyser node to determine if speaking
-  // and emit events if changed
-  var looper = function() {
-    setTimeout(function() {
-    
-      //check if stop has been called
-      if(!running) {
-        return;
-      }
-      
-      var currentVolume = getMaxVolume(analyser, fftBins);
-
-      harker.emit('volume_change', currentVolume, threshold);
-
-      var history = 0;
-      if (currentVolume > threshold && !harker.speaking) {
-        // trigger quickly, short history
-        for (var i = harker.speakingHistory.length - 3; i < harker.speakingHistory.length; i++) {
-          history += harker.speakingHistory[i];
-        }
-        if (history >= 2) {
-          harker.speaking = true;
-          harker.emit('speaking');
-        }
-      } else if (currentVolume < threshold && harker.speaking) {
-        for (var i = 0; i < harker.speakingHistory.length; i++) {
-          history += harker.speakingHistory[i];
-        }
-        if (history == 0) {
-          harker.speaking = false;
-          harker.emit('stopped_speaking');
-        }
-      }
-      harker.speakingHistory.shift();
-      harker.speakingHistory.push(0 + (currentVolume > threshold));
-
-      looper();
-    }, interval);
-  };
-  looper();
-
-
-  return harker;
-}
-
-},{"wildemitter":28}],21:[function(require,module,exports){
+},{"lodash.foreach":27,"lodash.pluck":26,"sdp-jingle-json":24,"traceablepeerconnection":25,"util":8,"webrtc-adapter-test":23,"wildemitter":4}],20:[function(require,module,exports){
 // getUserMedia helper by @HenrikJoreteg
 var adapter = require('webrtc-adapter-test');
 
@@ -4373,162 +4253,129 @@ module.exports = function (constraints, cb) {
     });
 };
 
-},{"webrtc-adapter-test":29}],28:[function(require,module,exports){
-/*
-WildEmitter.js is a slim little event emitter by @henrikjoreteg largely based
-on @visionmedia's Emitter from UI Kit.
+},{"webrtc-adapter-test":28}],24:[function(require,module,exports){
+var toSDP = require('./lib/tosdp');
+var toJSON = require('./lib/tojson');
 
-Why? I wanted it standalone.
 
-I also wanted support for wildcard emitters like this:
+// Converstion from JSON to SDP
 
-emitter.on('*', function (eventName, other, event, payloads) {
-
-});
-
-emitter.on('somenamespace*', function (eventName, payloads) {
-
-});
-
-Please note that callbacks triggered by wildcard registered events also get
-the event name as the first argument.
-*/
-
-module.exports = WildEmitter;
-
-function WildEmitter() { }
-
-WildEmitter.mixin = function (constructor) {
-    var prototype = constructor.prototype || constructor;
-
-    prototype.isWildEmitter= true;
-
-    // Listen on the given `event` with `fn`. Store a group name if present.
-    prototype.on = function (event, groupName, fn) {
-        this.callbacks = this.callbacks || {};
-        var hasGroup = (arguments.length === 3),
-            group = hasGroup ? arguments[1] : undefined,
-            func = hasGroup ? arguments[2] : arguments[1];
-        func._groupName = group;
-        (this.callbacks[event] = this.callbacks[event] || []).push(func);
-        return this;
-    };
-
-    // Adds an `event` listener that will be invoked a single
-    // time then automatically removed.
-    prototype.once = function (event, groupName, fn) {
-        var self = this,
-            hasGroup = (arguments.length === 3),
-            group = hasGroup ? arguments[1] : undefined,
-            func = hasGroup ? arguments[2] : arguments[1];
-        function on() {
-            self.off(event, on);
-            func.apply(this, arguments);
-        }
-        this.on(event, group, on);
-        return this;
-    };
-
-    // Unbinds an entire group
-    prototype.releaseGroup = function (groupName) {
-        this.callbacks = this.callbacks || {};
-        var item, i, len, handlers;
-        for (item in this.callbacks) {
-            handlers = this.callbacks[item];
-            for (i = 0, len = handlers.length; i < len; i++) {
-                if (handlers[i]._groupName === groupName) {
-                    //console.log('removing');
-                    // remove it and shorten the array we're looping through
-                    handlers.splice(i, 1);
-                    i--;
-                    len--;
-                }
-            }
-        }
-        return this;
-    };
-
-    // Remove the given callback for `event` or all
-    // registered callbacks.
-    prototype.off = function (event, fn) {
-        this.callbacks = this.callbacks || {};
-        var callbacks = this.callbacks[event],
-            i;
-
-        if (!callbacks) return this;
-
-        // remove all handlers
-        if (arguments.length === 1) {
-            delete this.callbacks[event];
-            return this;
-        }
-
-        // remove specific handler
-        i = callbacks.indexOf(fn);
-        callbacks.splice(i, 1);
-        if (callbacks.length === 0) {
-            delete this.callbacks[event];
-        }
-        return this;
-    };
-
-    /// Emit `event` with the given args.
-    // also calls any `*` handlers
-    prototype.emit = function (event) {
-        this.callbacks = this.callbacks || {};
-        var args = [].slice.call(arguments, 1),
-            callbacks = this.callbacks[event],
-            specialCallbacks = this.getWildcardCallbacks(event),
-            i,
-            len,
-            item,
-            listeners;
-
-        if (callbacks) {
-            listeners = callbacks.slice();
-            for (i = 0, len = listeners.length; i < len; ++i) {
-                if (!listeners[i]) {
-                    break;
-                }
-                listeners[i].apply(this, args);
-            }
-        }
-
-        if (specialCallbacks) {
-            len = specialCallbacks.length;
-            listeners = specialCallbacks.slice();
-            for (i = 0, len = listeners.length; i < len; ++i) {
-                if (!listeners[i]) {
-                    break;
-                }
-                listeners[i].apply(this, [event].concat(args));
-            }
-        }
-
-        return this;
-    };
-
-    // Helper for for finding special wildcard event handlers that match the event
-    prototype.getWildcardCallbacks = function (eventName) {
-        this.callbacks = this.callbacks || {};
-        var item,
-            split,
-            result = [];
-
-        for (item in this.callbacks) {
-            split = item.split('*');
-            if (item === '*' || (split.length === 2 && eventName.slice(0, split[0].length) === split[0])) {
-                result = result.concat(this.callbacks[item]);
-            }
-        }
-        return result;
-    };
-
+exports.toIncomingSDPOffer = function (session) {
+    return toSDP.toSessionSDP(session, {
+        role: 'responder',
+        direction: 'incoming'
+    });
 };
+exports.toOutgoingSDPOffer = function (session) {
+    return toSDP.toSessionSDP(session, {
+        role: 'initiator',
+        direction: 'outgoing'
+    });
+};
+exports.toIncomingSDPAnswer = function (session) {
+    return toSDP.toSessionSDP(session, {
+        role: 'initiator',
+        direction: 'incoming'
+    });
+};
+exports.toOutgoingSDPAnswer = function (session) {
+    return toSDP.toSessionSDP(session, {
+        role: 'responder',
+        direction: 'outgoing'
+    });
+};
+exports.toIncomingMediaSDPOffer = function (media) {
+    return toSDP.toMediaSDP(media, {
+        role: 'responder',
+        direction: 'incoming'
+    });
+};
+exports.toOutgoingMediaSDPOffer = function (media) {
+    return toSDP.toMediaSDP(media, {
+        role: 'initiator',
+        direction: 'outgoing'
+    });
+};
+exports.toIncomingMediaSDPAnswer = function (media) {
+    return toSDP.toMediaSDP(media, {
+        role: 'initiator',
+        direction: 'incoming'
+    });
+};
+exports.toOutgoingMediaSDPAnswer = function (media) {
+    return toSDP.toMediaSDP(media, {
+        role: 'responder',
+        direction: 'outgoing'
+    });
+};
+exports.toCandidateSDP = toSDP.toCandidateSDP;
+exports.toMediaSDP = toSDP.toMediaSDP;
+exports.toSessionSDP = toSDP.toSessionSDP;
 
-WildEmitter.mixin(WildEmitter);
 
-},{}],29:[function(require,module,exports){
+// Conversion from SDP to JSON
+
+exports.toIncomingJSONOffer = function (sdp, creators) {
+    return toJSON.toSessionJSON(sdp, {
+        role: 'responder',
+        direction: 'incoming',
+        creators: creators
+    });
+};
+exports.toOutgoingJSONOffer = function (sdp, creators) {
+    return toJSON.toSessionJSON(sdp, {
+        role: 'initiator',
+        direction: 'outgoing',
+        creators: creators
+    });
+};
+exports.toIncomingJSONAnswer = function (sdp, creators) {
+    return toJSON.toSessionJSON(sdp, {
+        role: 'initiator',
+        direction: 'incoming',
+        creators: creators
+    });
+};
+exports.toOutgoingJSONAnswer = function (sdp, creators) {
+    return toJSON.toSessionJSON(sdp, {
+        role: 'responder',
+        direction: 'outgoing',
+        creators: creators
+    });
+};
+exports.toIncomingMediaJSONOffer = function (sdp, creator) {
+    return toJSON.toMediaJSON(sdp, {
+        role: 'responder',
+        direction: 'incoming',
+        creator: creator
+    });
+};
+exports.toOutgoingMediaJSONOffer = function (sdp, creator) {
+    return toJSON.toMediaJSON(sdp, {
+        role: 'initiator',
+        direction: 'outgoing',
+        creator: creator
+    });
+};
+exports.toIncomingMediaJSONAnswer = function (sdp, creator) {
+    return toJSON.toMediaJSON(sdp, {
+        role: 'initiator',
+        direction: 'incoming',
+        creator: creator
+    });
+};
+exports.toOutgoingMediaJSONAnswer = function (sdp, creator) {
+    return toJSON.toMediaJSON(sdp, {
+        role: 'responder',
+        direction: 'outgoing',
+        creator: creator
+    });
+};
+exports.toCandidateJSON = toJSON.toCandidateJSON;
+exports.toMediaJSON = toJSON.toMediaJSON;
+exports.toSessionJSON = toJSON.toSessionJSON;
+
+},{"./lib/tojson":30,"./lib/tosdp":29}],28:[function(require,module,exports){
 /*
  *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
  *
@@ -5078,129 +4925,7 @@ if (typeof module !== 'undefined') {
   });
 }
 
-},{}],24:[function(require,module,exports){
-var toSDP = require('./lib/tosdp');
-var toJSON = require('./lib/tojson');
-
-
-// Converstion from JSON to SDP
-
-exports.toIncomingSDPOffer = function (session) {
-    return toSDP.toSessionSDP(session, {
-        role: 'responder',
-        direction: 'incoming'
-    });
-};
-exports.toOutgoingSDPOffer = function (session) {
-    return toSDP.toSessionSDP(session, {
-        role: 'initiator',
-        direction: 'outgoing'
-    });
-};
-exports.toIncomingSDPAnswer = function (session) {
-    return toSDP.toSessionSDP(session, {
-        role: 'initiator',
-        direction: 'incoming'
-    });
-};
-exports.toOutgoingSDPAnswer = function (session) {
-    return toSDP.toSessionSDP(session, {
-        role: 'responder',
-        direction: 'outgoing'
-    });
-};
-exports.toIncomingMediaSDPOffer = function (media) {
-    return toSDP.toMediaSDP(media, {
-        role: 'responder',
-        direction: 'incoming'
-    });
-};
-exports.toOutgoingMediaSDPOffer = function (media) {
-    return toSDP.toMediaSDP(media, {
-        role: 'initiator',
-        direction: 'outgoing'
-    });
-};
-exports.toIncomingMediaSDPAnswer = function (media) {
-    return toSDP.toMediaSDP(media, {
-        role: 'initiator',
-        direction: 'incoming'
-    });
-};
-exports.toOutgoingMediaSDPAnswer = function (media) {
-    return toSDP.toMediaSDP(media, {
-        role: 'responder',
-        direction: 'outgoing'
-    });
-};
-exports.toCandidateSDP = toSDP.toCandidateSDP;
-exports.toMediaSDP = toSDP.toMediaSDP;
-exports.toSessionSDP = toSDP.toSessionSDP;
-
-
-// Conversion from SDP to JSON
-
-exports.toIncomingJSONOffer = function (sdp, creators) {
-    return toJSON.toSessionJSON(sdp, {
-        role: 'responder',
-        direction: 'incoming',
-        creators: creators
-    });
-};
-exports.toOutgoingJSONOffer = function (sdp, creators) {
-    return toJSON.toSessionJSON(sdp, {
-        role: 'initiator',
-        direction: 'outgoing',
-        creators: creators
-    });
-};
-exports.toIncomingJSONAnswer = function (sdp, creators) {
-    return toJSON.toSessionJSON(sdp, {
-        role: 'initiator',
-        direction: 'incoming',
-        creators: creators
-    });
-};
-exports.toOutgoingJSONAnswer = function (sdp, creators) {
-    return toJSON.toSessionJSON(sdp, {
-        role: 'responder',
-        direction: 'outgoing',
-        creators: creators
-    });
-};
-exports.toIncomingMediaJSONOffer = function (sdp, creator) {
-    return toJSON.toMediaJSON(sdp, {
-        role: 'responder',
-        direction: 'incoming',
-        creator: creator
-    });
-};
-exports.toOutgoingMediaJSONOffer = function (sdp, creator) {
-    return toJSON.toMediaJSON(sdp, {
-        role: 'initiator',
-        direction: 'outgoing',
-        creator: creator
-    });
-};
-exports.toIncomingMediaJSONAnswer = function (sdp, creator) {
-    return toJSON.toMediaJSON(sdp, {
-        role: 'initiator',
-        direction: 'incoming',
-        creator: creator
-    });
-};
-exports.toOutgoingMediaJSONAnswer = function (sdp, creator) {
-    return toJSON.toMediaJSON(sdp, {
-        role: 'responder',
-        direction: 'outgoing',
-        creator: creator
-    });
-};
-exports.toCandidateJSON = toJSON.toCandidateJSON;
-exports.toMediaJSON = toJSON.toMediaJSON;
-exports.toSessionJSON = toJSON.toSessionJSON;
-
-},{"./lib/tojson":30,"./lib/tosdp":31}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 // getScreenMedia helper by @HenrikJoreteg
 var getUserMedia = require('getusermedia');
 
@@ -5372,7 +5097,7 @@ window.addEventListener('message', function (event) {
     }
 });
 
-},{"getusermedia":21}],22:[function(require,module,exports){
+},{"getusermedia":20}],22:[function(require,module,exports){
 var support = require('webrtcsupport');
 
 
@@ -5508,7 +5233,33 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":33,"./socket":34,"./url":32,"debug":35,"socket.io-parser":36}],35:[function(require,module,exports){
+},{"./manager":32,"./socket":33,"./url":31,"debug":34,"socket.io-parser":35}],36:[function(require,module,exports){
+
+/**
+ * Module exports.
+ */
+
+module.exports = on;
+
+/**
+ * Helper for subscriptions.
+ *
+ * @param {Object|EventEmitter} obj with `Emitter` mixin or `EventEmitter`
+ * @param {String} event name
+ * @param {Function} callback
+ * @api public
+ */
+
+function on(obj, ev, fn) {
+  obj.on(ev, fn);
+  return {
+    destroy: function(){
+      obj.removeListener(ev, fn);
+    }
+  };
+}
+
+},{}],34:[function(require,module,exports){
 
 /**
  * Expose `debug()` as the module.
@@ -5647,33 +5398,137 @@ try {
   if (window.localStorage) debug.enable(localStorage.debug);
 } catch(e){}
 
-},{}],37:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
+var WildEmitter = require('wildemitter');
 
-/**
- * Module exports.
- */
+function getMaxVolume (analyser, fftBins) {
+  var maxVolume = -Infinity;
+  analyser.getFloatFrequencyData(fftBins);
 
-module.exports = on;
-
-/**
- * Helper for subscriptions.
- *
- * @param {Object|EventEmitter} obj with `Emitter` mixin or `EventEmitter`
- * @param {String} event name
- * @param {Function} callback
- * @api public
- */
-
-function on(obj, ev, fn) {
-  obj.on(ev, fn);
-  return {
-    destroy: function(){
-      obj.removeListener(ev, fn);
+  for(var i=4, ii=fftBins.length; i < ii; i++) {
+    if (fftBins[i] > maxVolume && fftBins[i] < 0) {
+      maxVolume = fftBins[i];
     }
   };
+
+  return maxVolume;
 }
 
-},{}],27:[function(require,module,exports){
+
+var audioContextType = window.AudioContext || window.webkitAudioContext;
+// use a single audio context due to hardware limits
+var audioContext = null;
+module.exports = function(stream, options) {
+  var harker = new WildEmitter();
+
+
+  // make it not break in non-supported browsers
+  if (!audioContextType) return harker;
+
+  //Config
+  var options = options || {},
+      smoothing = (options.smoothing || 0.1),
+      interval = (options.interval || 50),
+      threshold = options.threshold,
+      play = options.play,
+      history = options.history || 10,
+      running = true;
+
+  //Setup Audio Context
+  if (!audioContext) {
+    audioContext = new audioContextType();
+  }
+  var sourceNode, fftBins, analyser;
+
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = smoothing;
+  fftBins = new Float32Array(analyser.fftSize);
+
+  if (stream.jquery) stream = stream[0];
+  if (stream instanceof HTMLAudioElement || stream instanceof HTMLVideoElement) {
+    //Audio Tag
+    sourceNode = audioContext.createMediaElementSource(stream);
+    if (typeof play === 'undefined') play = true;
+    threshold = threshold || -50;
+  } else {
+    //WebRTC Stream
+    sourceNode = audioContext.createMediaStreamSource(stream);
+    threshold = threshold || -50;
+  }
+
+  sourceNode.connect(analyser);
+  if (play) analyser.connect(audioContext.destination);
+
+  harker.speaking = false;
+
+  harker.setThreshold = function(t) {
+    threshold = t;
+  };
+
+  harker.setInterval = function(i) {
+    interval = i;
+  };
+  
+  harker.stop = function() {
+    running = false;
+    harker.emit('volume_change', -100, threshold);
+    if (harker.speaking) {
+      harker.speaking = false;
+      harker.emit('stopped_speaking');
+    }
+  };
+  harker.speakingHistory = [];
+  for (var i = 0; i < history; i++) {
+      harker.speakingHistory.push(0);
+  }
+
+  // Poll the analyser node to determine if speaking
+  // and emit events if changed
+  var looper = function() {
+    setTimeout(function() {
+    
+      //check if stop has been called
+      if(!running) {
+        return;
+      }
+      
+      var currentVolume = getMaxVolume(analyser, fftBins);
+
+      harker.emit('volume_change', currentVolume, threshold);
+
+      var history = 0;
+      if (currentVolume > threshold && !harker.speaking) {
+        // trigger quickly, short history
+        for (var i = harker.speakingHistory.length - 3; i < harker.speakingHistory.length; i++) {
+          history += harker.speakingHistory[i];
+        }
+        if (history >= 2) {
+          harker.speaking = true;
+          harker.emit('speaking');
+        }
+      } else if (currentVolume < threshold && harker.speaking) {
+        for (var i = 0; i < harker.speakingHistory.length; i++) {
+          history += harker.speakingHistory[i];
+        }
+        if (history == 0) {
+          harker.speaking = false;
+          harker.emit('stopped_speaking');
+        }
+      }
+      harker.speakingHistory.shift();
+      harker.speakingHistory.push(0 + (currentVolume > threshold));
+
+      looper();
+    }, interval);
+  };
+  looper();
+
+
+  return harker;
+}
+
+},{"wildemitter":4}],26:[function(require,module,exports){
 /**
  * lodash 3.1.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5832,7 +5687,7 @@ function property(path) {
 
 module.exports = pluck;
 
-},{"lodash._baseget":38,"lodash._topath":39,"lodash.isarray":40,"lodash.map":41}],26:[function(require,module,exports){
+},{"lodash._baseget":37,"lodash._topath":38,"lodash.isarray":39,"lodash.map":40}],27:[function(require,module,exports){
 /**
  * lodash 3.0.3 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5896,231 +5751,7 @@ var forEach = createForEach(arrayEach, baseEach);
 
 module.exports = forEach;
 
-},{"lodash._arrayeach":42,"lodash._baseeach":45,"lodash._bindcallback":43,"lodash.isarray":44}],30:[function(require,module,exports){
-var SENDERS = require('./senders');
-var parsers = require('./parsers');
-var idCounter = Math.random();
-
-
-exports._setIdCounter = function (counter) {
-    idCounter = counter;
-};
-
-exports.toSessionJSON = function (sdp, opts) {
-    var i;
-    var creators = opts.creators || [];
-    var role = opts.role || 'initiator';
-    var direction = opts.direction || 'outgoing';
-
-
-    // Divide the SDP into session and media sections.
-    var media = sdp.split('\r\nm=');
-    for (i = 1; i < media.length; i++) {
-        media[i] = 'm=' + media[i];
-        if (i !== media.length - 1) {
-            media[i] += '\r\n';
-        }
-    }
-    var session = media.shift() + '\r\n';
-    var sessionLines = parsers.lines(session);
-    var parsed = {};
-
-    var contents = [];
-    for (i = 0; i < media.length; i++) {
-        contents.push(exports.toMediaJSON(media[i], session, {
-            role: role,
-            direction: direction,
-            creator: creators[i] || 'initiator'
-        }));
-    }
-    parsed.contents = contents;
-
-    var groupLines = parsers.findLines('a=group:', sessionLines);
-    if (groupLines.length) {
-        parsed.groups = parsers.groups(groupLines);
-    }
-
-    return parsed;
-};
-
-exports.toMediaJSON = function (media, session, opts) {
-    var creator = opts.creator || 'initiator';
-    var role = opts.role || 'initiator';
-    var direction = opts.direction || 'outgoing';
-
-    var lines = parsers.lines(media);
-    var sessionLines = parsers.lines(session);
-    var mline = parsers.mline(lines[0]);
-
-    var content = {
-        creator: creator,
-        name: mline.media,
-        description: {
-            descType: 'rtp',
-            media: mline.media,
-            payloads: [],
-            encryption: [],
-            feedback: [],
-            headerExtensions: []
-        },
-        transport: {
-            transType: 'iceUdp',
-            candidates: [],
-            fingerprints: []
-        }
-    };
-    if (mline.media == 'application') {
-        // FIXME: the description is most likely to be independent
-        // of the SDP and should be processed by other parts of the library
-        content.description = {
-            descType: 'datachannel'
-        };
-        content.transport.sctp = [];
-    }
-    var desc = content.description;
-    var trans = content.transport;
-
-    // If we have a mid, use that for the content name instead.
-    var mid = parsers.findLine('a=mid:', lines);
-    if (mid) {
-        content.name = mid.substr(6);
-    }
-
-    if (parsers.findLine('a=sendrecv', lines, sessionLines)) {
-        content.senders = 'both';
-    } else if (parsers.findLine('a=sendonly', lines, sessionLines)) {
-        content.senders = SENDERS[role][direction].sendonly;
-    } else if (parsers.findLine('a=recvonly', lines, sessionLines)) {
-        content.senders = SENDERS[role][direction].recvonly;
-    } else if (parsers.findLine('a=inactive', lines, sessionLines)) {
-        content.senders = 'none';
-    }
-
-    if (desc.descType == 'rtp') {
-        var bandwidth = parsers.findLine('b=', lines);
-        if (bandwidth) {
-            desc.bandwidth = parsers.bandwidth(bandwidth);
-        }
-
-        var ssrc = parsers.findLine('a=ssrc:', lines);
-        if (ssrc) {
-            desc.ssrc = ssrc.substr(7).split(' ')[0];
-        }
-
-        var rtpmapLines = parsers.findLines('a=rtpmap:', lines);
-        rtpmapLines.forEach(function (line) {
-            var payload = parsers.rtpmap(line);
-            payload.parameters = [];
-            payload.feedback = [];
-
-            var fmtpLines = parsers.findLines('a=fmtp:' + payload.id, lines);
-            // There should only be one fmtp line per payload
-            fmtpLines.forEach(function (line) {
-                payload.parameters = parsers.fmtp(line);
-            });
-
-            var fbLines = parsers.findLines('a=rtcp-fb:' + payload.id, lines);
-            fbLines.forEach(function (line) {
-                payload.feedback.push(parsers.rtcpfb(line));
-            });
-
-            desc.payloads.push(payload);
-        });
-
-        var cryptoLines = parsers.findLines('a=crypto:', lines, sessionLines);
-        cryptoLines.forEach(function (line) {
-            desc.encryption.push(parsers.crypto(line));
-        });
-
-        if (parsers.findLine('a=rtcp-mux', lines)) {
-            desc.mux = true;
-        }
-
-        var fbLines = parsers.findLines('a=rtcp-fb:*', lines);
-        fbLines.forEach(function (line) {
-            desc.feedback.push(parsers.rtcpfb(line));
-        });
-
-        var extLines = parsers.findLines('a=extmap:', lines);
-        extLines.forEach(function (line) {
-            var ext = parsers.extmap(line);
-
-            ext.senders = SENDERS[role][direction][ext.senders];
-
-            desc.headerExtensions.push(ext);
-        });
-
-        var ssrcGroupLines = parsers.findLines('a=ssrc-group:', lines);
-        desc.sourceGroups = parsers.sourceGroups(ssrcGroupLines || []);
-
-        var ssrcLines = parsers.findLines('a=ssrc:', lines);
-        var sources = desc.sources = parsers.sources(ssrcLines || []);
-
-        var msidLine = parsers.findLine('a=msid:', lines);
-        if (msidLine) {
-            var msid = parsers.msid(msidLine);
-            ['msid', 'mslabel', 'label'].forEach(function (key) {
-                for (var i = 0; i < sources.length; i++) {
-                    var found = false;
-                    for (var j = 0; j < sources[i].parameters.length; j++) {
-                        if (sources[i].parameters[j].key === key) {
-                            found = true;
-                        }
-                    }
-                    if (!found) {
-                        sources[i].parameters.push({ key: key, value: msid[key] });
-                    }
-                }
-            });
-        }
-
-        if (parsers.findLine('a=x-google-flag:conference', lines, sessionLines)) {
-            desc.googConferenceFlag = true;
-        }
-    }
-
-    // transport specific attributes
-    var fingerprintLines = parsers.findLines('a=fingerprint:', lines, sessionLines);
-    var setup = parsers.findLine('a=setup:', lines, sessionLines);
-    fingerprintLines.forEach(function (line) {
-        var fp = parsers.fingerprint(line);
-        if (setup) {
-            fp.setup = setup.substr(8);
-        }
-        trans.fingerprints.push(fp);
-    });
-
-    var ufragLine = parsers.findLine('a=ice-ufrag:', lines, sessionLines);
-    var pwdLine = parsers.findLine('a=ice-pwd:', lines, sessionLines);
-    if (ufragLine && pwdLine) {
-        trans.ufrag = ufragLine.substr(12);
-        trans.pwd = pwdLine.substr(10);
-        trans.candidates = [];
-
-        var candidateLines = parsers.findLines('a=candidate:', lines, sessionLines);
-        candidateLines.forEach(function (line) {
-            trans.candidates.push(exports.toCandidateJSON(line));
-        });
-    }
-
-    if (desc.descType == 'datachannel') {
-        var sctpmapLines = parsers.findLines('a=sctpmap:', lines);
-        sctpmapLines.forEach(function (line) {
-            var sctp = parsers.sctpmap(line);
-            trans.sctp.push(sctp);
-        });
-    }
-
-    return content;
-};
-
-exports.toCandidateJSON = function (line) {
-    var candidate = parsers.candidate(line.split('\r\n')[0]);
-    candidate.id = (idCounter++).toString(36).substr(0, 12);
-    return candidate;
-};
-
-},{"./parsers":47,"./senders":46}],31:[function(require,module,exports){
+},{"lodash._arrayeach":41,"lodash._baseeach":42,"lodash._bindcallback":43,"lodash.isarray":44}],29:[function(require,module,exports){
 var SENDERS = require('./senders');
 
 
@@ -6345,7 +5976,231 @@ exports.toCandidateSDP = function (candidate) {
     return 'a=candidate:' + sdp.join(' ');
 };
 
-},{"./senders":46}],38:[function(require,module,exports){
+},{"./senders":45}],30:[function(require,module,exports){
+var SENDERS = require('./senders');
+var parsers = require('./parsers');
+var idCounter = Math.random();
+
+
+exports._setIdCounter = function (counter) {
+    idCounter = counter;
+};
+
+exports.toSessionJSON = function (sdp, opts) {
+    var i;
+    var creators = opts.creators || [];
+    var role = opts.role || 'initiator';
+    var direction = opts.direction || 'outgoing';
+
+
+    // Divide the SDP into session and media sections.
+    var media = sdp.split('\r\nm=');
+    for (i = 1; i < media.length; i++) {
+        media[i] = 'm=' + media[i];
+        if (i !== media.length - 1) {
+            media[i] += '\r\n';
+        }
+    }
+    var session = media.shift() + '\r\n';
+    var sessionLines = parsers.lines(session);
+    var parsed = {};
+
+    var contents = [];
+    for (i = 0; i < media.length; i++) {
+        contents.push(exports.toMediaJSON(media[i], session, {
+            role: role,
+            direction: direction,
+            creator: creators[i] || 'initiator'
+        }));
+    }
+    parsed.contents = contents;
+
+    var groupLines = parsers.findLines('a=group:', sessionLines);
+    if (groupLines.length) {
+        parsed.groups = parsers.groups(groupLines);
+    }
+
+    return parsed;
+};
+
+exports.toMediaJSON = function (media, session, opts) {
+    var creator = opts.creator || 'initiator';
+    var role = opts.role || 'initiator';
+    var direction = opts.direction || 'outgoing';
+
+    var lines = parsers.lines(media);
+    var sessionLines = parsers.lines(session);
+    var mline = parsers.mline(lines[0]);
+
+    var content = {
+        creator: creator,
+        name: mline.media,
+        description: {
+            descType: 'rtp',
+            media: mline.media,
+            payloads: [],
+            encryption: [],
+            feedback: [],
+            headerExtensions: []
+        },
+        transport: {
+            transType: 'iceUdp',
+            candidates: [],
+            fingerprints: []
+        }
+    };
+    if (mline.media == 'application') {
+        // FIXME: the description is most likely to be independent
+        // of the SDP and should be processed by other parts of the library
+        content.description = {
+            descType: 'datachannel'
+        };
+        content.transport.sctp = [];
+    }
+    var desc = content.description;
+    var trans = content.transport;
+
+    // If we have a mid, use that for the content name instead.
+    var mid = parsers.findLine('a=mid:', lines);
+    if (mid) {
+        content.name = mid.substr(6);
+    }
+
+    if (parsers.findLine('a=sendrecv', lines, sessionLines)) {
+        content.senders = 'both';
+    } else if (parsers.findLine('a=sendonly', lines, sessionLines)) {
+        content.senders = SENDERS[role][direction].sendonly;
+    } else if (parsers.findLine('a=recvonly', lines, sessionLines)) {
+        content.senders = SENDERS[role][direction].recvonly;
+    } else if (parsers.findLine('a=inactive', lines, sessionLines)) {
+        content.senders = 'none';
+    }
+
+    if (desc.descType == 'rtp') {
+        var bandwidth = parsers.findLine('b=', lines);
+        if (bandwidth) {
+            desc.bandwidth = parsers.bandwidth(bandwidth);
+        }
+
+        var ssrc = parsers.findLine('a=ssrc:', lines);
+        if (ssrc) {
+            desc.ssrc = ssrc.substr(7).split(' ')[0];
+        }
+
+        var rtpmapLines = parsers.findLines('a=rtpmap:', lines);
+        rtpmapLines.forEach(function (line) {
+            var payload = parsers.rtpmap(line);
+            payload.parameters = [];
+            payload.feedback = [];
+
+            var fmtpLines = parsers.findLines('a=fmtp:' + payload.id, lines);
+            // There should only be one fmtp line per payload
+            fmtpLines.forEach(function (line) {
+                payload.parameters = parsers.fmtp(line);
+            });
+
+            var fbLines = parsers.findLines('a=rtcp-fb:' + payload.id, lines);
+            fbLines.forEach(function (line) {
+                payload.feedback.push(parsers.rtcpfb(line));
+            });
+
+            desc.payloads.push(payload);
+        });
+
+        var cryptoLines = parsers.findLines('a=crypto:', lines, sessionLines);
+        cryptoLines.forEach(function (line) {
+            desc.encryption.push(parsers.crypto(line));
+        });
+
+        if (parsers.findLine('a=rtcp-mux', lines)) {
+            desc.mux = true;
+        }
+
+        var fbLines = parsers.findLines('a=rtcp-fb:*', lines);
+        fbLines.forEach(function (line) {
+            desc.feedback.push(parsers.rtcpfb(line));
+        });
+
+        var extLines = parsers.findLines('a=extmap:', lines);
+        extLines.forEach(function (line) {
+            var ext = parsers.extmap(line);
+
+            ext.senders = SENDERS[role][direction][ext.senders];
+
+            desc.headerExtensions.push(ext);
+        });
+
+        var ssrcGroupLines = parsers.findLines('a=ssrc-group:', lines);
+        desc.sourceGroups = parsers.sourceGroups(ssrcGroupLines || []);
+
+        var ssrcLines = parsers.findLines('a=ssrc:', lines);
+        var sources = desc.sources = parsers.sources(ssrcLines || []);
+
+        var msidLine = parsers.findLine('a=msid:', lines);
+        if (msidLine) {
+            var msid = parsers.msid(msidLine);
+            ['msid', 'mslabel', 'label'].forEach(function (key) {
+                for (var i = 0; i < sources.length; i++) {
+                    var found = false;
+                    for (var j = 0; j < sources[i].parameters.length; j++) {
+                        if (sources[i].parameters[j].key === key) {
+                            found = true;
+                        }
+                    }
+                    if (!found) {
+                        sources[i].parameters.push({ key: key, value: msid[key] });
+                    }
+                }
+            });
+        }
+
+        if (parsers.findLine('a=x-google-flag:conference', lines, sessionLines)) {
+            desc.googConferenceFlag = true;
+        }
+    }
+
+    // transport specific attributes
+    var fingerprintLines = parsers.findLines('a=fingerprint:', lines, sessionLines);
+    var setup = parsers.findLine('a=setup:', lines, sessionLines);
+    fingerprintLines.forEach(function (line) {
+        var fp = parsers.fingerprint(line);
+        if (setup) {
+            fp.setup = setup.substr(8);
+        }
+        trans.fingerprints.push(fp);
+    });
+
+    var ufragLine = parsers.findLine('a=ice-ufrag:', lines, sessionLines);
+    var pwdLine = parsers.findLine('a=ice-pwd:', lines, sessionLines);
+    if (ufragLine && pwdLine) {
+        trans.ufrag = ufragLine.substr(12);
+        trans.pwd = pwdLine.substr(10);
+        trans.candidates = [];
+
+        var candidateLines = parsers.findLines('a=candidate:', lines, sessionLines);
+        candidateLines.forEach(function (line) {
+            trans.candidates.push(exports.toCandidateJSON(line));
+        });
+    }
+
+    if (desc.descType == 'datachannel') {
+        var sctpmapLines = parsers.findLines('a=sctpmap:', lines);
+        sctpmapLines.forEach(function (line) {
+            var sctp = parsers.sctpmap(line);
+            trans.sctp.push(sctp);
+        });
+    }
+
+    return content;
+};
+
+exports.toCandidateJSON = function (line) {
+    var candidate = parsers.candidate(line.split('\r\n')[0]);
+    candidate.id = (idCounter++).toString(36).substr(0, 12);
+    return candidate;
+};
+
+},{"./parsers":46,"./senders":45}],37:[function(require,module,exports){
 /**
  * lodash 3.7.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6421,7 +6276,7 @@ function isObject(value) {
 
 module.exports = baseGet;
 
-},{}],40:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6603,7 +6458,7 @@ function isNative(value) {
 
 module.exports = isArray;
 
-},{}],42:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6885,7 +6740,7 @@ function isNative(value) {
 
 module.exports = isArray;
 
-},{}],32:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 var global=self;
 /**
  * Module dependencies.
@@ -6960,7 +6815,7 @@ function url(uri, loc){
   return obj;
 }
 
-},{"debug":35,"parseuri":48}],33:[function(require,module,exports){
+},{"debug":34,"parseuri":47}],32:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -7465,7 +7320,7 @@ Manager.prototype.onreconnect = function(){
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":37,"./socket":34,"./url":32,"backo2":54,"component-bind":51,"component-emitter":49,"debug":35,"engine.io-client":50,"indexof":53,"object-component":52,"socket.io-parser":36}],34:[function(require,module,exports){
+},{"./on":36,"./socket":33,"./url":31,"backo2":53,"component-bind":50,"component-emitter":48,"debug":34,"engine.io-client":49,"indexof":52,"object-component":51,"socket.io-parser":35}],33:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -7852,7 +7707,7 @@ Socket.prototype.disconnect = function(){
   return this;
 };
 
-},{"./on":37,"component-bind":51,"component-emitter":49,"debug":35,"has-binary":56,"socket.io-parser":36,"to-array":55}],46:[function(require,module,exports){
+},{"./on":36,"component-bind":50,"component-emitter":48,"debug":34,"has-binary":55,"socket.io-parser":35,"to-array":54}],45:[function(require,module,exports){
 module.exports = {
     initiator: {
         incoming: {
@@ -7900,7 +7755,7 @@ module.exports = {
     }
 };
 
-},{}],47:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 exports.lines = function (sdp) {
     return sdp.split('\r\n').filter(function (line) {
         return line.length > 0;
@@ -8171,7 +8026,7 @@ exports.msid = function (line) {
     };
 };
 
-},{}],57:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 var global=self;
 module.exports = isBuf;
 
@@ -8186,7 +8041,7 @@ function isBuf(obj) {
          (global.ArrayBuffer && obj instanceof ArrayBuffer);
 }
 
-},{}],49:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -8350,33 +8205,6 @@ Emitter.prototype.listeners = function(event){
 
 Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
-};
-
-},{}],48:[function(require,module,exports){
-/**
- * Parses an URI
- *
- * @author Steven Levithan <stevenlevithan.com> (MIT license)
- * @api private
- */
-
-var re = /^(?:(?![^:@]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
-
-var parts = [
-    'source', 'protocol', 'authority', 'userInfo', 'user', 'password', 'host'
-  , 'port', 'relative', 'path', 'directory', 'file', 'query', 'anchor'
-];
-
-module.exports = function parseuri(str) {
-  var m = re.exec(str || '')
-    , uri = {}
-    , i = 14;
-
-  while (i--) {
-    uri[parts[i]] = m[i] || '';
-  }
-
-  return uri;
 };
 
 },{}],25:[function(require,module,exports){
@@ -8592,7 +8420,34 @@ TraceablePeerConnection.prototype.getStats = function () {
 
 module.exports = TraceablePeerConnection;
 
-},{"util":8,"webrtc-adapter-test":23,"wildemitter":5}],51:[function(require,module,exports){
+},{"util":8,"webrtc-adapter-test":23,"wildemitter":4}],47:[function(require,module,exports){
+/**
+ * Parses an URI
+ *
+ * @author Steven Levithan <stevenlevithan.com> (MIT license)
+ * @api private
+ */
+
+var re = /^(?:(?![^:@]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@]*)(?::([^:@]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
+
+var parts = [
+    'source', 'protocol', 'authority', 'userInfo', 'user', 'password', 'host'
+  , 'port', 'relative', 'path', 'directory', 'file', 'query', 'anchor'
+];
+
+module.exports = function parseuri(str) {
+  var m = re.exec(str || '')
+    , uri = {}
+    , i = 14;
+
+  while (i--) {
+    uri[parts[i]] = m[i] || '';
+  }
+
+  return uri;
+};
+
+},{}],50:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -8617,7 +8472,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],52:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 
 /**
  * HOP ref.
@@ -8702,7 +8557,7 @@ exports.length = function(obj){
 exports.isEmpty = function(obj){
   return 0 == exports.length(obj);
 };
-},{}],53:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 
 var indexOf = [].indexOf;
 
@@ -8713,7 +8568,7 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],54:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -8800,7 +8655,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],55:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -8815,12 +8670,12 @@ function toArray(list, index) {
     return array
 }
 
-},{}],58:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],59:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 /*! JSON v3.2.6 | http://bestiejs.github.io/json3 | Copyright 2012-2013, Kit Cambridge | http://kit.mit-license.org */
 ;(function (window) {
   // Convenience aliases.
@@ -9683,7 +9538,7 @@ module.exports = Array.isArray || function (arr) {
   }
 }(this));
 
-},{}],36:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -10085,7 +9940,7 @@ function error(data){
   };
 }
 
-},{"./binary":60,"./is-buffer":57,"component-emitter":49,"debug":35,"isarray":58,"json3":59}],45:[function(require,module,exports){
+},{"./binary":59,"./is-buffer":56,"component-emitter":48,"debug":34,"isarray":57,"json3":58}],42:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10268,11 +10123,11 @@ function isObject(value) {
 
 module.exports = baseEach;
 
-},{"lodash.keys":61}],50:[function(require,module,exports){
+},{"lodash.keys":60}],49:[function(require,module,exports){
 
 module.exports =  require('./lib/');
 
-},{"./lib/":62}],60:[function(require,module,exports){
+},{"./lib/":61}],59:[function(require,module,exports){
 var global=self;/*global Blob,File*/
 
 /**
@@ -10415,7 +10270,7 @@ exports.removeBlobs = function(data, callback) {
   }
 };
 
-},{"./is-buffer":57,"isarray":58}],56:[function(require,module,exports){
+},{"./is-buffer":56,"isarray":57}],55:[function(require,module,exports){
 var global=self;
 /*
  * Module requirements.
@@ -10475,7 +10330,7 @@ function hasBinary(data) {
   return _hasBinary(data);
 }
 
-},{"isarray":63}],64:[function(require,module,exports){
+},{"isarray":62}],63:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10507,7 +10362,7 @@ function arrayMap(array, iteratee) {
 
 module.exports = arrayMap;
 
-},{}],39:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 /**
  * lodash 3.8.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10556,7 +10411,7 @@ function toPath(value) {
 
 module.exports = toPath;
 
-},{"lodash.isarray":40}],41:[function(require,module,exports){
+},{"lodash.isarray":39}],40:[function(require,module,exports){
 /**
  * lodash 3.1.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10708,12 +10563,12 @@ function map(collection, iteratee, thisArg) {
 
 module.exports = map;
 
-},{"lodash._arraymap":64,"lodash._basecallback":65,"lodash._baseeach":66,"lodash.isarray":40}],63:[function(require,module,exports){
+},{"lodash._arraymap":63,"lodash._basecallback":64,"lodash._baseeach":65,"lodash.isarray":39}],62:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],67:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10780,7 +10635,7 @@ function identity(value) {
 
 module.exports = bindCallback;
 
-},{}],68:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 /**
  * lodash 3.9.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10919,7 +10774,7 @@ function isNative(value) {
 
 module.exports = getNative;
 
-},{}],69:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11027,7 +10882,7 @@ function isArguments(value) {
 
 module.exports = isArguments;
 
-},{}],66:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11210,7 +11065,7 @@ function isObject(value) {
 
 module.exports = baseEach;
 
-},{"lodash.keys":70}],62:[function(require,module,exports){
+},{"lodash.keys":69}],61:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -11222,7 +11077,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":71,"engine.io-parser":72}],65:[function(require,module,exports){
+},{"./socket":70,"engine.io-parser":71}],64:[function(require,module,exports){
 /**
  * lodash 3.3.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11646,7 +11501,7 @@ function property(path) {
 
 module.exports = baseCallback;
 
-},{"lodash._baseisequal":73,"lodash._bindcallback":67,"lodash.isarray":40,"lodash.pairs":74}],61:[function(require,module,exports){
+},{"lodash._baseisequal":72,"lodash._bindcallback":66,"lodash.isarray":39,"lodash.pairs":73}],60:[function(require,module,exports){
 /**
  * lodash 3.1.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11884,7 +11739,28 @@ function keysIn(object) {
 
 module.exports = keys;
 
-},{"lodash._getnative":68,"lodash.isarguments":69,"lodash.isarray":44}],75:[function(require,module,exports){
+},{"lodash._getnative":67,"lodash.isarguments":68,"lodash.isarray":44}],74:[function(require,module,exports){
+
+/**
+ * Gets the keys for an object.
+ *
+ * @return {Array} keys
+ * @api private
+ */
+
+module.exports = Object.keys || function keys (obj){
+  var arr = [];
+  var has = Object.prototype.hasOwnProperty;
+
+  for (var i in obj) {
+    if (has.call(obj, i)) {
+      arr.push(i);
+    }
+  }
+  return arr;
+};
+
+},{}],75:[function(require,module,exports){
 var global=self;/**
  * Module dependencies
  */
@@ -11940,27 +11816,6 @@ function polling(opts){
 }
 
 },{"./polling-jsonp":78,"./polling-xhr":77,"./websocket":79,"xmlhttprequest":76}],80:[function(require,module,exports){
-
-/**
- * Gets the keys for an object.
- *
- * @return {Array} keys
- * @api private
- */
-
-module.exports = Object.keys || function keys (obj){
-  var arr = [];
-  var has = Object.prototype.hasOwnProperty;
-
-  for (var i in obj) {
-    if (has.call(obj, i)) {
-      arr.push(i);
-    }
-  }
-  return arr;
-};
-
-},{}],81:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -12072,7 +11927,7 @@ function isTypedArray(value) {
 
 module.exports = isTypedArray;
 
-},{}],82:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -12113,7 +11968,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],83:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 var global=self;/**
  * JSON parse.
  *
@@ -12146,7 +12001,7 @@ module.exports = function parsejson(data) {
     return (new Function('return ' + data))();
   }
 };
-},{}],84:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -12185,7 +12040,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],71:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 var global=self;/**
  * Module dependencies.
  */
@@ -12892,115 +12747,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
   return filteredUpgrades;
 };
 
-},{"./transport":85,"./transports":75,"component-emitter":49,"debug":86,"engine.io-parser":72,"indexof":53,"parsejson":83,"parseqs":84,"parseuri":82}],87:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Native method references. */
-var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is classified as an `arguments` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isArguments(function() { return arguments; }());
- * // => true
- *
- * _.isArguments([1, 2, 3]);
- * // => false
- */
-function isArguments(value) {
-  return isObjectLike(value) && isArrayLike(value) &&
-    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
-}
-
-module.exports = isArguments;
-
-},{}],88:[function(require,module,exports){
+},{"./transport":84,"./transports":75,"component-emitter":48,"debug":85,"engine.io-parser":71,"indexof":52,"parsejson":82,"parseqs":83,"parseuri":81}],86:[function(require,module,exports){
 /**
  * lodash 3.9.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -13139,7 +12886,115 @@ function isNative(value) {
 
 module.exports = getNative;
 
-},{}],86:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Native method references. */
+var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is classified as an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+function isArguments(value) {
+  return isObjectLike(value) && isArrayLike(value) &&
+    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
+}
+
+module.exports = isArguments;
+
+},{}],85:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -13288,7 +13143,7 @@ function load() {
 
 exports.enable(load());
 
-},{"./debug":89}],74:[function(require,module,exports){
+},{"./debug":88}],73:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -13368,7 +13223,7 @@ function pairs(object) {
 
 module.exports = pairs;
 
-},{"lodash.keys":70}],90:[function(require,module,exports){
+},{"lodash.keys":69}],89:[function(require,module,exports){
 var global=self;/*! https://mths.be/utf8js v2.0.0 by @mathias */
 ;(function(root) {
 
@@ -13614,7 +13469,7 @@ var global=self;/*! https://mths.be/utf8js v2.0.0 by @mathias */
 
 }(this));
 
-},{}],73:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 /**
  * lodash 3.0.7 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -13958,7 +13813,7 @@ function isObject(value) {
 
 module.exports = baseIsEqual;
 
-},{"lodash.isarray":40,"lodash.istypedarray":81,"lodash.keys":70}],70:[function(require,module,exports){
+},{"lodash.isarray":39,"lodash.istypedarray":80,"lodash.keys":69}],69:[function(require,module,exports){
 /**
  * lodash 3.1.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -14196,7 +14051,227 @@ function keysIn(object) {
 
 module.exports = keys;
 
-},{"lodash._getnative":88,"lodash.isarguments":87,"lodash.isarray":40}],85:[function(require,module,exports){
+},{"lodash._getnative":86,"lodash.isarguments":87,"lodash.isarray":39}],90:[function(require,module,exports){
+/**
+ * An abstraction for slicing an arraybuffer even when
+ * ArrayBuffer.prototype.slice is not supported
+ *
+ * @api public
+ */
+
+module.exports = function(arraybuffer, start, end) {
+  var bytes = arraybuffer.byteLength;
+  start = start || 0;
+  end = end || bytes;
+
+  if (arraybuffer.slice) { return arraybuffer.slice(start, end); }
+
+  if (start < 0) { start += bytes; }
+  if (end < 0) { end += bytes; }
+  if (end > bytes) { end = bytes; }
+
+  if (start >= bytes || start >= end || bytes === 0) {
+    return new ArrayBuffer(0);
+  }
+
+  var abv = new Uint8Array(arraybuffer);
+  var result = new Uint8Array(end - start);
+  for (var i = start, ii = 0; i < end; i++, ii++) {
+    result[ii] = abv[i];
+  }
+  return result.buffer;
+};
+
+},{}],91:[function(require,module,exports){
+/*
+ * base64-arraybuffer
+ * https://github.com/niklasvh/base64-arraybuffer
+ *
+ * Copyright (c) 2012 Niklas von Hertzen
+ * Licensed under the MIT license.
+ */
+(function(chars){
+  "use strict";
+
+  exports.encode = function(arraybuffer) {
+    var bytes = new Uint8Array(arraybuffer),
+    i, len = bytes.length, base64 = "";
+
+    for (i = 0; i < len; i+=3) {
+      base64 += chars[bytes[i] >> 2];
+      base64 += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+      base64 += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+      base64 += chars[bytes[i + 2] & 63];
+    }
+
+    if ((len % 3) === 2) {
+      base64 = base64.substring(0, base64.length - 1) + "=";
+    } else if (len % 3 === 1) {
+      base64 = base64.substring(0, base64.length - 2) + "==";
+    }
+
+    return base64;
+  };
+
+  exports.decode =  function(base64) {
+    var bufferLength = base64.length * 0.75,
+    len = base64.length, i, p = 0,
+    encoded1, encoded2, encoded3, encoded4;
+
+    if (base64[base64.length - 1] === "=") {
+      bufferLength--;
+      if (base64[base64.length - 2] === "=") {
+        bufferLength--;
+      }
+    }
+
+    var arraybuffer = new ArrayBuffer(bufferLength),
+    bytes = new Uint8Array(arraybuffer);
+
+    for (i = 0; i < len; i+=4) {
+      encoded1 = chars.indexOf(base64[i]);
+      encoded2 = chars.indexOf(base64[i+1]);
+      encoded3 = chars.indexOf(base64[i+2]);
+      encoded4 = chars.indexOf(base64[i+3]);
+
+      bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
+      bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
+      bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
+    }
+
+    return arraybuffer;
+  };
+})("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+
+},{}],92:[function(require,module,exports){
+module.exports = after
+
+function after(count, callback, err_cb) {
+    var bail = false
+    err_cb = err_cb || noop
+    proxy.count = count
+
+    return (count === 0) ? callback() : proxy
+
+    function proxy(err, result) {
+        if (proxy.count <= 0) {
+            throw new Error('after called too many times')
+        }
+        --proxy.count
+
+        // after first error, rest are passed to err_cb
+        if (err) {
+            bail = true
+            callback(err)
+            // future error callbacks will go to error handler
+            callback = err_cb
+        } else if (proxy.count === 0 && !bail) {
+            callback(null, result)
+        }
+    }
+}
+
+function noop() {}
+
+},{}],93:[function(require,module,exports){
+var global=self;/**
+ * Create a blob builder even when vendor prefixes exist
+ */
+
+var BlobBuilder = global.BlobBuilder
+  || global.WebKitBlobBuilder
+  || global.MSBlobBuilder
+  || global.MozBlobBuilder;
+
+/**
+ * Check if Blob constructor is supported
+ */
+
+var blobSupported = (function() {
+  try {
+    var a = new Blob(['hi']);
+    return a.size === 2;
+  } catch(e) {
+    return false;
+  }
+})();
+
+/**
+ * Check if Blob constructor supports ArrayBufferViews
+ * Fails in Safari 6, so we need to map to ArrayBuffers there.
+ */
+
+var blobSupportsArrayBufferView = blobSupported && (function() {
+  try {
+    var b = new Blob([new Uint8Array([1,2])]);
+    return b.size === 2;
+  } catch(e) {
+    return false;
+  }
+})();
+
+/**
+ * Check if BlobBuilder is supported
+ */
+
+var blobBuilderSupported = BlobBuilder
+  && BlobBuilder.prototype.append
+  && BlobBuilder.prototype.getBlob;
+
+/**
+ * Helper function that maps ArrayBufferViews to ArrayBuffers
+ * Used by BlobBuilder constructor and old browsers that didn't
+ * support it in the Blob constructor.
+ */
+
+function mapArrayBufferViews(ary) {
+  for (var i = 0; i < ary.length; i++) {
+    var chunk = ary[i];
+    if (chunk.buffer instanceof ArrayBuffer) {
+      var buf = chunk.buffer;
+
+      // if this is a subarray, make a copy so we only
+      // include the subarray region from the underlying buffer
+      if (chunk.byteLength !== buf.byteLength) {
+        var copy = new Uint8Array(chunk.byteLength);
+        copy.set(new Uint8Array(buf, chunk.byteOffset, chunk.byteLength));
+        buf = copy.buffer;
+      }
+
+      ary[i] = buf;
+    }
+  }
+}
+
+function BlobBuilderConstructor(ary, options) {
+  options = options || {};
+
+  var bb = new BlobBuilder();
+  mapArrayBufferViews(ary);
+
+  for (var i = 0; i < ary.length; i++) {
+    bb.append(ary[i]);
+  }
+
+  return (options.type) ? bb.getBlob(options.type) : bb.getBlob();
+};
+
+function BlobConstructor(ary, options) {
+  mapArrayBufferViews(ary);
+  return new Blob(ary, options || {});
+};
+
+module.exports = (function() {
+  if (blobSupported) {
+    return blobSupportsArrayBufferView ? global.Blob : BlobConstructor;
+  } else if (blobBuilderSupported) {
+    return BlobBuilderConstructor;
+  } else {
+    return undefined;
+  }
+})();
+
+},{}],84:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -14357,227 +14432,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":49,"engine.io-parser":72}],91:[function(require,module,exports){
-/**
- * An abstraction for slicing an arraybuffer even when
- * ArrayBuffer.prototype.slice is not supported
- *
- * @api public
- */
-
-module.exports = function(arraybuffer, start, end) {
-  var bytes = arraybuffer.byteLength;
-  start = start || 0;
-  end = end || bytes;
-
-  if (arraybuffer.slice) { return arraybuffer.slice(start, end); }
-
-  if (start < 0) { start += bytes; }
-  if (end < 0) { end += bytes; }
-  if (end > bytes) { end = bytes; }
-
-  if (start >= bytes || start >= end || bytes === 0) {
-    return new ArrayBuffer(0);
-  }
-
-  var abv = new Uint8Array(arraybuffer);
-  var result = new Uint8Array(end - start);
-  for (var i = start, ii = 0; i < end; i++, ii++) {
-    result[ii] = abv[i];
-  }
-  return result.buffer;
-};
-
-},{}],92:[function(require,module,exports){
-/*
- * base64-arraybuffer
- * https://github.com/niklasvh/base64-arraybuffer
- *
- * Copyright (c) 2012 Niklas von Hertzen
- * Licensed under the MIT license.
- */
-(function(chars){
-  "use strict";
-
-  exports.encode = function(arraybuffer) {
-    var bytes = new Uint8Array(arraybuffer),
-    i, len = bytes.length, base64 = "";
-
-    for (i = 0; i < len; i+=3) {
-      base64 += chars[bytes[i] >> 2];
-      base64 += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
-      base64 += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
-      base64 += chars[bytes[i + 2] & 63];
-    }
-
-    if ((len % 3) === 2) {
-      base64 = base64.substring(0, base64.length - 1) + "=";
-    } else if (len % 3 === 1) {
-      base64 = base64.substring(0, base64.length - 2) + "==";
-    }
-
-    return base64;
-  };
-
-  exports.decode =  function(base64) {
-    var bufferLength = base64.length * 0.75,
-    len = base64.length, i, p = 0,
-    encoded1, encoded2, encoded3, encoded4;
-
-    if (base64[base64.length - 1] === "=") {
-      bufferLength--;
-      if (base64[base64.length - 2] === "=") {
-        bufferLength--;
-      }
-    }
-
-    var arraybuffer = new ArrayBuffer(bufferLength),
-    bytes = new Uint8Array(arraybuffer);
-
-    for (i = 0; i < len; i+=4) {
-      encoded1 = chars.indexOf(base64[i]);
-      encoded2 = chars.indexOf(base64[i+1]);
-      encoded3 = chars.indexOf(base64[i+2]);
-      encoded4 = chars.indexOf(base64[i+3]);
-
-      bytes[p++] = (encoded1 << 2) | (encoded2 >> 4);
-      bytes[p++] = ((encoded2 & 15) << 4) | (encoded3 >> 2);
-      bytes[p++] = ((encoded3 & 3) << 6) | (encoded4 & 63);
-    }
-
-    return arraybuffer;
-  };
-})("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-
-},{}],93:[function(require,module,exports){
-module.exports = after
-
-function after(count, callback, err_cb) {
-    var bail = false
-    err_cb = err_cb || noop
-    proxy.count = count
-
-    return (count === 0) ? callback() : proxy
-
-    function proxy(err, result) {
-        if (proxy.count <= 0) {
-            throw new Error('after called too many times')
-        }
-        --proxy.count
-
-        // after first error, rest are passed to err_cb
-        if (err) {
-            bail = true
-            callback(err)
-            // future error callbacks will go to error handler
-            callback = err_cb
-        } else if (proxy.count === 0 && !bail) {
-            callback(null, result)
-        }
-    }
-}
-
-function noop() {}
-
-},{}],94:[function(require,module,exports){
-var global=self;/**
- * Create a blob builder even when vendor prefixes exist
- */
-
-var BlobBuilder = global.BlobBuilder
-  || global.WebKitBlobBuilder
-  || global.MSBlobBuilder
-  || global.MozBlobBuilder;
-
-/**
- * Check if Blob constructor is supported
- */
-
-var blobSupported = (function() {
-  try {
-    var a = new Blob(['hi']);
-    return a.size === 2;
-  } catch(e) {
-    return false;
-  }
-})();
-
-/**
- * Check if Blob constructor supports ArrayBufferViews
- * Fails in Safari 6, so we need to map to ArrayBuffers there.
- */
-
-var blobSupportsArrayBufferView = blobSupported && (function() {
-  try {
-    var b = new Blob([new Uint8Array([1,2])]);
-    return b.size === 2;
-  } catch(e) {
-    return false;
-  }
-})();
-
-/**
- * Check if BlobBuilder is supported
- */
-
-var blobBuilderSupported = BlobBuilder
-  && BlobBuilder.prototype.append
-  && BlobBuilder.prototype.getBlob;
-
-/**
- * Helper function that maps ArrayBufferViews to ArrayBuffers
- * Used by BlobBuilder constructor and old browsers that didn't
- * support it in the Blob constructor.
- */
-
-function mapArrayBufferViews(ary) {
-  for (var i = 0; i < ary.length; i++) {
-    var chunk = ary[i];
-    if (chunk.buffer instanceof ArrayBuffer) {
-      var buf = chunk.buffer;
-
-      // if this is a subarray, make a copy so we only
-      // include the subarray region from the underlying buffer
-      if (chunk.byteLength !== buf.byteLength) {
-        var copy = new Uint8Array(chunk.byteLength);
-        copy.set(new Uint8Array(buf, chunk.byteOffset, chunk.byteLength));
-        buf = copy.buffer;
-      }
-
-      ary[i] = buf;
-    }
-  }
-}
-
-function BlobBuilderConstructor(ary, options) {
-  options = options || {};
-
-  var bb = new BlobBuilder();
-  mapArrayBufferViews(ary);
-
-  for (var i = 0; i < ary.length; i++) {
-    bb.append(ary[i]);
-  }
-
-  return (options.type) ? bb.getBlob(options.type) : bb.getBlob();
-};
-
-function BlobConstructor(ary, options) {
-  mapArrayBufferViews(ary);
-  return new Blob(ary, options || {});
-};
-
-module.exports = (function() {
-  if (blobSupported) {
-    return blobSupportsArrayBufferView ? global.Blob : BlobConstructor;
-  } else if (blobBuilderSupported) {
-    return BlobBuilderConstructor;
-  } else {
-    return undefined;
-  }
-})();
-
-},{}],72:[function(require,module,exports){
+},{"component-emitter":48,"engine.io-parser":71}],71:[function(require,module,exports){
 var global=self;/**
  * Module dependencies.
  */
@@ -15173,7 +15028,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
   });
 };
 
-},{"./keys":80,"after":93,"arraybuffer.slice":91,"base64-arraybuffer":92,"blob":94,"has-binary":56,"utf8":90}],76:[function(require,module,exports){
+},{"./keys":74,"after":92,"arraybuffer.slice":90,"base64-arraybuffer":91,"blob":93,"has-binary":55,"utf8":89}],76:[function(require,module,exports){
 // browser shim for xmlhttprequest module
 var hasCORS = require('has-cors');
 
@@ -15211,7 +15066,7 @@ module.exports = function(opts) {
   }
 }
 
-},{"has-cors":95}],89:[function(require,module,exports){
+},{"has-cors":94}],88:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -15410,7 +15265,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":96}],96:[function(require,module,exports){
+},{"ms":95}],95:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -15758,7 +15613,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
   }
 };
 
-},{"./polling":97,"component-inherit":98}],79:[function(require,module,exports){
+},{"./polling":96,"component-inherit":97}],79:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -15998,7 +15853,7 @@ WS.prototype.check = function(){
   return !!WebSocket && !('__initialize' in WebSocket && this.name === WS.prototype.name);
 };
 
-},{"../transport":85,"component-inherit":98,"debug":86,"engine.io-parser":72,"parseqs":84,"ws":99}],99:[function(require,module,exports){
+},{"../transport":84,"component-inherit":97,"debug":85,"engine.io-parser":71,"parseqs":83,"ws":98}],98:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -16429,7 +16284,7 @@ function unloadHandler() {
   }
 }
 
-},{"./polling":97,"component-emitter":49,"component-inherit":98,"debug":86,"xmlhttprequest":76}],98:[function(require,module,exports){
+},{"./polling":96,"component-emitter":48,"component-inherit":97,"debug":85,"xmlhttprequest":76}],97:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -16437,7 +16292,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],95:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -16462,7 +16317,7 @@ try {
   module.exports = false;
 }
 
-},{"global":100}],100:[function(require,module,exports){
+},{"global":99}],99:[function(require,module,exports){
 
 /**
  * Returns `this`. Execute this without a "context" (i.e. without it being
@@ -16472,7 +16327,7 @@ try {
 
 module.exports = (function () { return this; })();
 
-},{}],97:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -16719,6 +16574,6 @@ Polling.prototype.uri = function(){
   return schema + '://' + this.hostname + port + this.path + query;
 };
 
-},{"../transport":85,"component-inherit":98,"debug":86,"engine.io-parser":72,"parseqs":84,"xmlhttprequest":76}]},{},[1])(1)
+},{"../transport":84,"component-inherit":97,"debug":85,"engine.io-parser":71,"parseqs":83,"xmlhttprequest":76}]},{},[1])(1)
 });
 ;
