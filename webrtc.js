@@ -5,18 +5,6 @@ var mockconsole = require('mockconsole');
 var localMedia = require('localmedia');
 var Peer = require('./peer');
 
-var isChrome = !!navigator.webkitGetUserMedia;
-
-var STUN = {
-    url: isChrome 
-       ? 'stun:stun.l.google.com:19302' 
-       : 'stun:23.21.150.121'
-};
-
-var TURN = {
-    url: 'turn:homeo@turn.bistri.com:80',
-    credential: 'homeo'
-};
 
 function WebRTC(opts) {
     var self = this;
@@ -24,9 +12,7 @@ function WebRTC(opts) {
     var config = this.config = {
             debug: false,
             // makes the entire PC config overridable
-            peerConnectionConfig: {
-                iceServers: []
-            },
+            
             peerConnectionConstraints: {
                 optional: []
             },
