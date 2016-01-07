@@ -87,6 +87,12 @@ function Peer(options) {
                     receiver.channel.close();
                 });
             };
+        }else{
+            channel.onmessage = function (event) {
+                var metadata = JSON.parse(event.data);
+                //receiver.receive(metadata, channel);
+                self.emit('dataTransfer', metadata);
+            };
         }
     });
 
@@ -163,7 +169,7 @@ Peer.prototype.sendDirectly = function (channel, messageType, payload) {
         type: messageType,
         payload: payload
     };
-    this.logger.log('sending via datachannel', channel, messageType, message);
+    this.logger.log('sending via getDataChannel', channel, messageType, message);
     var dc = this.getDataChannel(channel);
     if (dc.readyState != 'open') return false;
     dc.send(JSON.stringify(message));
@@ -282,6 +288,21 @@ Peer.prototype.sendFile = function (file) {
         sender.emit('complete');
     };
     return sender;
+};
+
+Peer.prototype.sendData = function (data) {
+    var dc = this.getDataChannel('datatransfer' + (new Date()).getTime(), {});
+    // override onopen
+    dc.onopen = function () {
+        console.log("on open, sending")
+        dc.send(JSON.stringify(data));
+    };
+    // override onclose
+    dc.onclose = function () {
+        console.log('sender received transfer');
+        //sender.emit('complete');
+    };
+    
 };
 
 module.exports = Peer;

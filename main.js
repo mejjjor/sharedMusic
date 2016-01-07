@@ -1,3 +1,7 @@
+
+
+
+
 // grab the room from the URL
 var room = location.search && location.search.split('?')[1];
 
@@ -20,6 +24,12 @@ var webrtc = new SimpleWebRTC({
 // called when a peer is created
 webrtc.on('createdPeer', function (peer) {
     console.log('createdPeer', peer);
+
+document.getElementById("sendData").onclick = function(){
+    peer.sendData({aa:"zz"});
+};
+
+
     var remotes = document.getElementById('remotes');
     if (!remotes) return;
     var container = document.createElement('div');
@@ -165,6 +175,9 @@ webrtc.on('createdPeer', function (peer) {
         });
         filelist.appendChild(item);
     });
+ peer.on('dataTransfer', function (metadata) {
+    console.log('incoming datatransfer', metadata);
+ });
 });
 
 // local p2p/ice failure
