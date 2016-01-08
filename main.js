@@ -53,7 +53,7 @@ document.getElementById("sendData").onclick = function(){
 
     // send a file
     fileinput.addEventListener('change', function() {
-        fileinput.disabled = true;
+        //fileinput.disabled = true;
 
         var file = fileinput.files[0];
         var sender = peer.sendFile(file);
@@ -204,7 +204,6 @@ webrtc.on('connectivityError', function (peer) {
 
 function setRoom(name) {
     document.querySelector('form').remove();
-    document.getElementById('title').innerText = 'Room: ' + name;
     document.getElementById('subTitle').innerText =  'Link to join: ' + location.href;
     $('body').addClass('active');
 }
@@ -216,11 +215,12 @@ if (room) {
     });
 } else {
     $('form>button').attr('disabled', null);
+    document.getElementById('intro').style.display = "block";
     $('form').submit(function () {
         var val = $('#sessionInput').val().toLowerCase().replace(/\s/g, '-').replace(/[^A-Za-z0-9_\-]/g, '');
         webrtc.createRoom(val, function (err, name) {
             console.log(' create room cb', arguments);
-
+            document.getElementById('intro').style.display = "none";
             var newUrl = location.pathname + '?' + name;
             if (!err) {
                 history.replaceState({foo: 'bar'}, null, newUrl);
@@ -232,35 +232,11 @@ if (room) {
         return false;
     });
 }
-window.AudioContext = window.AudioContext || window.webkitAudioContext;
-var context = new window.AudioContext();
-var source;
-function playSound(arraybuffer) {
-    context.decodeAudioData(arraybuffer, function (buf) {
-        source = context.createBufferSource();
-        source.connect(context.destination);
-        source.buffer = buf;
-        source.start(0);
-    });
-}
-
-function handleFileSelect(evt) {
-    var files = evt.target.files; // FileList object
-    playFile(files[0]);
-}
 
 function playFile(file) {
-    var freader = new FileReader();
 
-    freader.onload = function (e) {
-        console.log(e.target.result);
-        playSound(e.target.result);
-    };
-    freader.readAsArrayBuffer(file);
-}
+    objectUrl = URL.createObjectURL(file);
+    $("#audio").prop("src", objectUrl);
+ }
 
-player = document.getElementById('player');
-document.getElementById('files').addEventListener('change', handleFileSelect, false);
-document.getElementById('play').onclick = function () {
-    player.play();
-};
+

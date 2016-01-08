@@ -33,6 +33,8 @@
   "license": "MIT",
   "scripts": {
     "test-travis": "test/run-selenium",
-    "updateLatest": "./scripts/updateLatest.sh"
+    "updateLatest": "./scripts/updateLatest.sh",
+    "build:scripts":"browserify  main.js -o app.js ",
+    "dev":"npm run build:scripts "
   }
 }
