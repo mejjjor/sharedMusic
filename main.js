@@ -237,6 +237,7 @@ function playFile(file) {
 
     objectUrl = URL.createObjectURL(file);
     $("#audio").prop("src", objectUrl);
+    document.getElementById('audio').play();
  }
 
 
