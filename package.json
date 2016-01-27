@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "browserify": "2.22.0",
+    "chokidar-cli": "^1.0.1",
     "chromedriver": "^2.16.0",
     "express": "3.x.x",
     "precommit-hook": "0.3.x",
@@ -40,8 +41,13 @@
     "clean": "mkdir -p public/ && rm -rf public/*",
     "build:assets": "cp -r app/assets/* public/ ",
     "build:scripts": "mkdir -p public/js && cp app/js/main.js public/js/app.js &&  cp app/js/latest-v2.js public/js/latest-v2.js ",
-    "build:css": "pleeease watch node_modules/normalize.css/normalize.css node_modules/font-awesome/css/font-awesome.min.css app/css/* to public/css/app.css ",
+    "build:css": "pleeease compile node_modules/normalize.css/normalize.css node_modules/font-awesome/css/font-awesome.min.css app/css/* to public/css/app.css ",
     "build": "npm run build:scripts && npm run build:assets && npm run build:css",
-    "dev": "npm run clean && npm run build "
+    "dev": "npm run clean && npm run build && npm run watch",
+    "watch": "npm run watch:assets & npm run watch:css & npm run watch:scripts",
+    "watch:assets": "chokidar 'app/assets/*' -c 'echo `date` && npm run build:assets -s'",
+    "watch:css": "chokidar 'app/css/main.less' -c 'echo `date` && npm run build:css -s'",
+    "watch:scripts": "chokidar 'app/js/main.js' -c 'echo `date` && npm run build:scripts -s'"
+        
   }
 }
