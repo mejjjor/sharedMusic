@@ -22,7 +22,7 @@
     "wildemitter": "1.x"
   },
   "devDependencies": {
-    "browserify": "2.22.0",
+    "browserify": "^11.0.1",
     "chokidar-cli": "^1.0.1",
     "chromedriver": "^2.16.0",
     "express": "3.x.x",

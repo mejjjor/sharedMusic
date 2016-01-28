@@ -1,0 +1,15 @@
+- procedure d'initialisation (owner, contributor)
+- interface lecteur
+- interface playlist
+- connection via fb / twitter / google 
+- playlist modifiable (drag & drop)
+- ajouter mp3 par drag & drop
+- multi mp3
+- recherche sur youtube / soundcloud via API
+- mettre https
+- locker la playlist (contributor ne peuvent pas modifier)
+
+Plus tard : 
+- changer le owner d'un groupe
+- webtrc everywhere (pour reseau mobile)
+- gerer les serveurs stun, turn ..... (ne plus passer par google)
