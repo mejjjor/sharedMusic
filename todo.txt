@@ -8,6 +8,7 @@
 - recherche sur youtube / soundcloud via API
 - mettre https
 - locker la playlist (contributor ne peuvent pas modifier)
+- local storage des musiques (pour reload de la page)
 
 Plus tard : 
 - changer le owner d'un groupe

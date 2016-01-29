@@ -1,9 +1,13 @@
-
-
-
+var _ = require('underscore');
 
 // grab the room from the URL
 var room = location.search && location.search.split('?')[1];
+var role = "contributor";
+var peers = [];
+var userName;
+var owner;
+var playlist = [];
+var files = [];
 
 // create our webrtc connection
 var webrtc = new SimpleWebRTC({
@@ -21,14 +25,21 @@ var webrtc = new SimpleWebRTC({
     }
 });
 
-// called when a peer is created
-webrtc.on('createdPeer', function (peer) {
-    console.log('createdPeer', peer);
-
-document.getElementById("sendData").onclick = function(){
-    peer.sendData({aa:"zz"});
+document.getElementById("setName").onclick = function() {
+    userName = document.getElementById("sessionName").value;
+    document.getElementById("nameSetter").style.display = "none";
+    document.getElementById("title").innerText = "MeetMusic - " + userName;
 };
 
+// called when a peer is created
+webrtc.on('createdPeer', function(peer) {
+    peers.push(peer);
+    peer.sendData({
+        type: "init",
+        role: role,
+        name: userName
+    });
+    console.log('createdPeer', peer);
 
     var remotes = document.getElementById('remotes');
     if (!remotes) return;
@@ -47,53 +58,6 @@ document.getElementById("sendData").onclick = function(){
     filelist.className = 'fileList';
     container.appendChild(filelist);
 
-    // show a file select form
-    var fileinput = document.createElement('input');
-    fileinput.type = 'file';
-
-    // send a file
-    fileinput.addEventListener('change', function() {
-        //fileinput.disabled = true;
-
-        var file = fileinput.files[0];
-        var sender = peer.sendFile(file);
-
-        // create a file item
-        var item = document.createElement('li');
-        item.className = 'sending';
-
-        // make a label
-        var span = document.createElement('span');
-        span.className = 'filename';
-        span.appendChild(document.createTextNode(file.name));
-        item.appendChild(span);
-
-        span = document.createElement('span');
-        span.appendChild(document.createTextNode(file.size + ' bytes'));
-        item.appendChild(span);
-
-        // create a progress element
-        var sendProgress = document.createElement('progress');
-        sendProgress.max = file.size;
-        item.appendChild(sendProgress);
-
-        // hook up send progress
-        sender.on('progress', function (bytesSent) {
-            sendProgress.value = bytesSent;
-        });
-        // sending done
-        sender.on('sentFile', function () {
-            item.appendChild(document.createTextNode('sent'));
-
-            // we allow only one filetransfer at a time
-            fileinput.removeAttribute('disabled');
-        });
-        // receiver has actually received the file
-        sender.on('complete', function () {
-            // safe to disconnect now
-        });
-        filelist.appendChild(item);
-    }, false);
     fileinput.disabled = 'disabled';
     container.appendChild(fileinput);
 
@@ -102,41 +66,40 @@ document.getElementById("sendData").onclick = function(){
         var connstate = document.createElement('div');
         connstate.className = 'connectionstate';
         container.appendChild(connstate);
-        peer.pc.on('iceConnectionStateChange', function (event) {
+        peer.pc.on('iceConnectionStateChange', function(event) {
             var state = peer.pc.iceConnectionState;
             console.log('state', state);
-            container.className = 'peerContainer p2p' + state.substr(0, 1).toUpperCase()
-                + state.substr(1);
+            container.className = 'peerContainer p2p' + state.substr(0, 1).toUpperCase() + state.substr(1);
             switch (state) {
-            case 'checking':
-                connstate.innerText = 'Connecting to peer...';
-                break;
-            case 'connected':
-            case 'completed': // on caller side
-                connstate.innerText = 'Connection established.';
-                // enable file sending on connnect
-                fileinput.removeAttribute('disabled');
-                break;
-            case 'disconnected':
-                connstate.innerText = 'Disconnected.';
-                break;
-            case 'failed':
-                // not handled here
-                break;
-            case 'closed':
-                connstate.innerText = 'Connection closed.';
+                case 'checking':
+                    connstate.innerText = 'Connecting to peer...';
+                    break;
+                case 'connected':
+                case 'completed': // on caller side
+                    connstate.innerText = 'Connection established.';
+                    // enable file sending on connnect
+                    fileinput.removeAttribute('disabled');
+                    break;
+                case 'disconnected':
+                    connstate.innerText = 'Disconnected.';
+                    break;
+                case 'failed':
+                    // not handled here
+                    break;
+                case 'closed':
+                    connstate.innerText = 'Connection closed.';
 
-                // disable file sending
-                fileinput.disabled = 'disabled';
-                // FIXME: remove container, but when?
-                break;
+                    // disable file sending
+                    fileinput.disabled = 'disabled';
+                    // FIXME: remove container, but when?
+                    break;
             }
         });
     }
     remotes.appendChild(container);
 
     // receiving an incoming filetransfer
-    peer.on('fileTransfer', function (metadata, receiver) {
+    peer.on('fileTransfer', function(metadata, receiver) {
         console.log('incoming filetransfer', metadata);
         var item = document.createElement('li');
         item.className = 'receiving';
@@ -157,11 +120,11 @@ document.getElementById("sendData").onclick = function(){
         item.appendChild(receiveProgress);
 
         // hook up receive progress
-        receiver.on('progress', function (bytesReceived) {
+        receiver.on('progress', function(bytesReceived) {
             receiveProgress.value = bytesReceived;
         });
         // get notified when file is done
-        receiver.on('receivedFile', function (file, metadata) {
+        receiver.on('receivedFile', function(file, metadata) {
             console.log('received file', metadata.name, metadata.size);
             var href = document.createElement('a');
             href.href = URL.createObjectURL(file);
@@ -170,18 +133,26 @@ document.getElementById("sendData").onclick = function(){
             item.appendChild(href);
             // close the channel
             receiver.channel.close();
-            
-            playFile(file);
+
+            files.push(file);
+            //playFile(file);
         });
         filelist.appendChild(item);
     });
- peer.on('dataTransfer', function (metadata) {
-    console.log('incoming datatransfer', metadata);
- });
+    peer.on('dataTransfer', function(metadata) {
+        console.log('incoming datatransfer', metadata);
+        if (metadata.type === "init") {
+            if (metadata.role === "owner" && owner === undefined) {
+                owner = peer;
+            }
+        } else if (metadata.type === "file") {
+            addToPlaylist(metadata.fileName, metadata.name);
+        }
+    });
 });
 
 // local p2p/ice failure
-webrtc.on('iceFailed', function (peer) {
+webrtc.on('iceFailed', function(peer) {
     var connstate = document.querySelector('#container_' + webrtc.getDomId(peer) + ' .connectionstate');
     var fileinput = document.querySelector('#container_' + webrtc.getDomId(peer) + ' input');
     console.log('local fail', connstate);
@@ -192,7 +163,7 @@ webrtc.on('iceFailed', function (peer) {
 });
 
 // remote p2p/ice failure
-webrtc.on('connectivityError', function (peer) {
+webrtc.on('connectivityError', function(peer) {
     var connstate = document.querySelector('#container_' + webrtc.getDomId(peer) + ' .connectionstate');
     var fileinput = document.querySelector('#container_' + webrtc.getDomId(peer) + ' input');
     console.log('remote fail', connstate);
@@ -204,26 +175,32 @@ webrtc.on('connectivityError', function (peer) {
 
 function setRoom(name) {
     document.querySelector('form').remove();
-    document.getElementById('subTitle').innerText =  'Link to join: ' + location.href;
     $('body').addClass('active');
+    document.getElementById('player').style.display = "block";
 }
 
 if (room) {
     setRoom(room);
-    webrtc.joinRoom(room, function (err, res) {
+    webrtc.joinRoom(room, function(err, res) {
         console.log('joined', room, err, res);
     });
 } else {
     $('form>button').attr('disabled', null);
     document.getElementById('intro').style.display = "block";
-    $('form').submit(function () {
+    $('form').submit(function() {
         var val = $('#sessionInput').val().toLowerCase().replace(/\s/g, '-').replace(/[^A-Za-z0-9_\-]/g, '');
-        webrtc.createRoom(val, function (err, name) {
+        webrtc.createRoom(val, function(err, name) {
             console.log(' create room cb', arguments);
+
+            document.getElementById('audio').style.display = "block";
             document.getElementById('intro').style.display = "none";
+            role = "owner";
+            userName = $('#sessionName').val();
             var newUrl = location.pathname + '?' + name;
             if (!err) {
-                history.replaceState({foo: 'bar'}, null, newUrl);
+                history.replaceState({
+                    foo: 'bar'
+                }, null, newUrl);
                 setRoom(name);
             } else {
                 console.log(err);
@@ -233,11 +210,53 @@ if (room) {
     });
 }
 
+// show a file select form
+var fileinput = document.getElementById("addFile");
+
+// send a file
+fileinput.addEventListener('change', function() {
+
+    //fileinput.disabled = true;
+
+    var file = fileinput.files[0];
+    if (role === "owner") {
+        //playFile(file);
+
+        files.push(file);
+        addToPlaylist(file.name, userName);
+    } else {
+        var sender = owner.sendFile(file);
+        owner.sendData({
+            type: "file",
+            fileName: file.name,
+            name: userName
+        });
+    }
+
+
+}, false);
+
 function playFile(file) {
 
     objectUrl = URL.createObjectURL(file);
     $("#audio").prop("src", objectUrl);
     document.getElementById('audio').play();
- }
+}
 
+function addToPlaylist(fileName, contributor) {
+    var div = document.createElement('div');
+    var i = document.createElement('i');
+    i.className = "fa fa-play-circle fa-3x";
+    div.appendChild(i);
+    div.innerHTML += contributor + " - " + fileName;
+    document.getElementById("playlist").appendChild(div);
+    var playIt = document.getElementById("playlist").lastChild.firstChild;
+    playIt.addEventListener('click', function() {
+        playFile(_.where(files, {
+            name: fileName
+        })[0]);
+    }, false);
+
+    playlist.push(filename);
+}
 
